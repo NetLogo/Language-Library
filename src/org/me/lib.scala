@@ -7,6 +7,7 @@ import org.nlogo.api.Exceptions.ignoring
 import java.net.Socket
 import org.nlogo.api.{ExtensionException, OutputDestination, Workspace}
 import org.nlogo.core.{Dump, LogoList, Nobody}
+import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
 
 import java.lang.{Boolean => JavaBoolean, Double => JavaDouble}
@@ -20,6 +21,8 @@ import scala.concurrent.SyncVar
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
+
+
 
 object Subprocess {
   // In and out
@@ -128,6 +131,33 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
 
   private val executor : ExecutorService = Executors.newSingleThreadExecutor()
 
+  object Haltable {
+    def apply[R](body: => R): R = try body catch {
+      case _: InterruptedException =>
+        Thread.interrupted()
+        invalidateJobs()
+        throw new HaltException(true)
+      case e: Throwable => throw e
+    }
+  }
+
+  object Handle {
+    /**
+     * Deal with Exceptions (both inside the Try and non-fatal thrown) in a NetLogo-friendly way.
+     */
+    def apply[R](body: => Try[R]): R = Try(body).flatten match {
+      case Failure(he: HaltException) => throw he// We can't actually catch throw InterruptedExceptions, but in case there's a wrapped one
+      case Failure(_: InterruptedException) =>
+        Thread.interrupted()
+        invalidateJobs()
+        throw new HaltException(true)
+      case Failure(ee: ExtensionException) => throw ee
+      case Failure(ex: Exception) => throw new ExtensionException(ex)
+      case Failure(th: Throwable) => throw th
+      case Success(x) => x
+    }
+  }
+
   def ensureValidNum(d: Double): Double = d match {
     case x if x.isInfinite => throw new ExtensionException("Python reported a number too large for NetLogo.")
     case x if x.isNaN => throw new ExtensionException("Python reported a non-numeric value from a mathematical operation.")
@@ -197,20 +227,35 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     )
   } else Success(())
 
-  def exec(stmt: String): Try[SyncVar[Try[Unit]]] =
-    heartbeat().map(_ => async {
-      run(sendStmt(stmt))(())
-    })
+  def exec(stmt: String): SyncVar[Try[Unit]] = {
+    Handle {
+      Haltable {
+        heartbeat().map(_ => async {
+          run(sendStmt(stmt))(())
+        })
+      }
+    }
+  }
 
-  def eval(expr: String): Try[SyncVar[Try[AnyRef]]] =
-    heartbeat().map(_ => async {
-      run(sendExpr(expr))(readLogo())
-    })
+  def eval(expr: String): SyncVar[Try[AnyRef]] = {
+    Handle {
+      Haltable {
+        heartbeat().map(_ => async {
+          run(sendExpr(expr))(readLogo())
+        })
+      }
+    }
+  }
 
-  def assign(varName: String, value: AnyRef): Try[SyncVar[Try[Unit]]] =
-    heartbeat().map(_ => async {
-      run(sendAssn(varName, value))(())
-    })
+  def assign(varName: String, value: AnyRef): SyncVar[Try[Unit]] = {
+    Handle {
+      Haltable {
+        heartbeat().map(_ => async {
+          run(sendAssn(varName, value))(())
+        })
+      }
+    }
+  }
 
   def clientException(): Exception = {
     val e = readString()
