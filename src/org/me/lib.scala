@@ -126,7 +126,9 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
   private val shuttingDown = new AtomicBoolean(false)
   private val isRunningLegitJob = new AtomicBoolean(false)
 
-  val in = new BufferedInputStream(socket.getInputStream)
+//  val in = new BufferedInputStream(socket.getInputStream)
+  val inReader = new BufferedReader(new InputStreamReader(socket.getInputStream))
+
   val out = new BufferedOutputStream(socket.getOutputStream)
 
   val stdout = new InputStreamReader(proc.getInputStream)
@@ -207,21 +209,38 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     result
   }
 
-  private def run[R](send: => Unit)(read: => R): Try[R] = {
+  private def run(send: => Unit): Try[AnyRef] = {
     send
-    val t = readByte()
-    val result = if (t == 0) {
-      Success(read)
+
+//    println("about to get inline")
+    val line = inReader.readLine()
+//    println("inline", line)
+    val parsed = parse(line)
+
+    val msg_type = toLogo(parsed \ "type")
+
+    val result = if (msg_type == 0) {
+      val body = toLogo(parsed \ "body")
+      Success(body)
     } else {
-      Failure(clientException())
+      val message = compact(render((parsed \ "body" \ "message"))).drop(1).dropRight(1)
+      val cause = compact(render(parsed \ "body" \ "cause")).drop(1).dropRight(1)
+      Failure(new ExtensionException(message, new Exception(cause)))
     }
+
+//    val t = readByte()
+//    val result = if (t == 0) {
+//      Success(read)
+//    } else {
+//      Failure(clientException())
+//    }
     redirectPipes()
     result
   }
 
-  def heartbeat(timeout: Duration = 1.seconds): Try[Unit] = if (!isRunningLegitJob.get) {
+  def heartbeat(timeout: Duration = 1.seconds): Try[Any] = if (!isRunningLegitJob.get) {
     val hb = async {
-      run {sendStmt("")} {()}
+      run {sendStmt("")}
     }
     hb.get(timeout.toMillis).getOrElse(
       Failure(new ExtensionException(
@@ -230,11 +249,11 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     )
   } else Success(())
 
-  def exec(stmt: String): SyncVar[Try[Unit]] = {
+  def exec(stmt: String): SyncVar[Try[AnyRef]] = {
     Handle {
       Haltable {
         heartbeat().map(_ => async {
-          run(sendStmt(stmt))(())
+          run(sendStmt(stmt))
         })
       }
     }
@@ -244,27 +263,27 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     Handle {
       Haltable {
         heartbeat().map(_ => async {
-          run(sendExpr(expr))(readLogo())
+          run(sendExpr(expr))
         })
       }
     }
   }
 
-  def assign(varName: String, value: AnyRef): SyncVar[Try[Unit]] = {
+  def assign(varName: String, value: AnyRef): SyncVar[Try[AnyRef]] = {
     Handle {
       Haltable {
         heartbeat().map(_ => async {
-          run(sendAssn(varName, value))(())
+          run(sendAssn(varName, value))
         })
       }
     }
   }
 
-  def clientException(): Exception = {
-    val e = readString()
-    val tb = readString()
-    new ExtensionException(e, new Exception(tb))
-  }
+//  def clientException(): Exception = {
+//    val e = readString()
+//    val tb = readString()
+//    new ExtensionException(e, new Exception(tb))
+//  }
 
   private def sendStmt(stmt: String): Unit = {
 //    out.write(Subprocess.stmtMsg)
@@ -298,30 +317,30 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     out.flush()
   }
 
-  private def read(numBytes: Int): Array[Byte] = Array.fill(numBytes)(readByte())
+//  private def read(numBytes: Int): Array[Byte] = Array.fill(numBytes)(readByte())
 
-  private def readByte(): Byte = {
-    val nextByte = in.read()
-    if (nextByte == -1) {
-      throw new IOException("Reached end of stream")
-    }
-    nextByte.toByte
-  }
-
-  private def readInt(): Int = {
-    (readByte() << 24) & 0xff000000 |
-    (readByte() << 16) & 0x00ff0000 |
-    (readByte() <<  8) & 0x0000ff00 |
-    (readByte() <<  0) & 0x000000ff
-  }
-
-  private def readString(): String = {
-    val l = readInt()
-    val s = new String(read(l), "UTF-8")
-    s
-  }
-
-  private def readLogo(): AnyRef = toLogo(readString())
+//  private def readByte(): Byte = {
+//    val nextByte = in.read()
+//    if (nextByte == -1) {
+//      throw new IOException("Reached end of stream")
+//    }
+//    nextByte.toByte
+//  }
+//
+//  private def readInt(): Int = {
+//    (readByte() << 24) & 0xff000000 |
+//    (readByte() << 16) & 0x00ff0000 |
+//    (readByte() <<  8) & 0x0000ff00 |
+//    (readByte() <<  0) & 0x000000ff
+//  }
+//
+//  private def readString(): String = {
+//    val l = readInt()
+//    val s = new String(read(l), "UTF-8")
+//    s
+//  }
+//
+//  private def readLogo(): AnyRef = toLogo(readString())
 
   private def writeInt(i: Int): Unit = {
     val a = Array((i >>> 24).toByte, (i >>> 16).toByte, (i >>> 8).toByte, i.toByte)
@@ -366,7 +385,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
   def close(): Unit = {
     shuttingDown.set(true)
     executor.shutdownNow()
-    ignoring(classOf[IOException])(in.close())
+    ignoring(classOf[IOException])(inReader.close())
     ignoring(classOf[IOException])(out.close())
     ignoring(classOf[IOException])(socket.close())
     proc.destroyForcibly()
