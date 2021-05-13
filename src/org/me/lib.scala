@@ -1,7 +1,8 @@
 package org.me
 
 import org.json4s.JsonAST.{JArray, JBool, JDecimal, JDouble, JInt, JLong, JNothing, JNull, JObject, JSet, JString, JValue}
-import org.json4s.jackson.JsonMethods.{mapper, parse}
+import org.json4s.jackson.JsonMethods.{compact, mapper, parse, render}
+import org.json4s.JsonDSL._
 import org.nlogo.api.Exceptions.ignoring
 
 import java.net.Socket
@@ -61,12 +62,14 @@ object Subprocess {
     val pbInput = new BufferedReader(new InputStreamReader(proc.getInputStream))
     val portLine = pbInput.readLine
 
-    val port = try {
-      portLine.toInt
-    } catch {
-      case _: java.lang.NumberFormatException =>
-        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
-    }
+//    val port = try {
+//      portLine.toInt
+//    } catch {
+//      case _: java.lang.NumberFormatException =>
+//        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+//    }
+
+    val port = 1337
 
     var socket: Socket = null
     while (socket == null && proc.isAlive) {
@@ -104,7 +107,7 @@ object Subprocess {
     // using Homebrew Python or similar, it won't be on that PATH. So, we check if we're on MacOS and if we have that
     // neuteredPATH. If so, we want to execute with the users actual PATH. We use `path_helper` to get that. It's not
     // perfect; it will miss PATHs defined in certain files, but hopefully it's good enough.
-      getCmdOutput("/bin/bash", "-l", "-c", "echo $PATH").head ++ basePath
+      getCmdOutput("/bin/bash", "-l", "-c", "echo $PATH").head + basePath
     else
       basePath
     unsplitPath.split(File.pathSeparatorChar).map(new File(_)).filter(f => f.isDirectory)
@@ -263,22 +266,35 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     new ExtensionException(e, new Exception(tb))
   }
 
-  private def sendStmt(msg: String): Unit = {
-    out.write(Subprocess.stmtMsg)
-    writeString(msg)
+  private def sendStmt(stmt: String): Unit = {
+//    out.write(Subprocess.stmtMsg)
+//    writeString(msg)
+    val msg = ("type" -> Subprocess.stmtMsg) ~ ("body" -> stmt)
+    out.write(compact(render(msg)).getBytes("UTF-8"))
+//    println(msg.toString)
+    out.write('\n')
     out.flush()
   }
 
-  private def sendExpr(msg: String): Unit = {
-    out.write(Subprocess.exprMsg)
-    writeString(msg)
+  private def sendExpr(expr: String): Unit = {
+//    out.write(Subprocess.exprMsg)
+//    writeString(msg)
+    val msg = ("type" -> Subprocess.exprMsg) ~ ("body" -> expr)
+    out.write(compact(render(msg)).getBytes("UTF-8"))
+//    println(msg.toString)
+    out.write('\n')
     out.flush()
   }
 
   private def sendAssn(varName: String, value: AnyRef): Unit = {
-    out.write(Subprocess.assnMsg)
-    writeString(varName)
-    writeString(toJson(value))
+//    out.write(Subprocess.assnMsg)
+//    writeString(varName)
+//    writeString(toJson(value))
+    val name_value_pair = ("varName" -> varName) ~ ("value" -> toJson(value))
+    val msg = ("type" -> Subprocess.assnMsg) ~ ("body" -> name_value_pair)
+    out.write(compact(render(msg)).getBytes("UTF-8"))
+//    println(msg.toString)
+    out.write('\n')
     out.flush()
   }
 
@@ -318,11 +334,18 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     out.write(bytes)
   }
 
-  def toJson(x: AnyRef): String = x match {
-    case l: LogoList => "[" + l.map(toJson).mkString(", ") + "]"
-    case b: java.lang.Boolean => if (b) "true" else "false"
-    case Nobody => "None"
-    case o => Dump.logoObject(o, readable = true, exporting = false)
+//  def toJson(x: AnyRef): String = x match {
+//    case l: LogoList => "[" + l.map(toJson).mkString(", ") + "]"
+//    case b: java.lang.Boolean => if (b) "true" else "false"
+//    case Nobody => "None"
+//    case o => Dump.logoObject(o, readable = true, exporting = false)
+//  }
+
+  def toJson(x: AnyRef): JValue = x match {
+    case l: LogoList => l.map(toJson)
+    case b: java.lang.Boolean => if (b) JBool.True else JBool.False
+    case Nobody => JNothing
+    case o => parse(Dump.logoObject(o, readable = true, exporting = false))
   }
 
   def toLogo(s: String): AnyRef = toLogo(parse(s))
