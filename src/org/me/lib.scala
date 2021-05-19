@@ -62,14 +62,14 @@ object Subprocess {
     val pbInput = new BufferedReader(new InputStreamReader(proc.getInputStream))
     val portLine = pbInput.readLine
 
-//    val port = try {
-//      portLine.toInt
-//    } catch {
-//      case _: java.lang.NumberFormatException =>
-//        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
-//    }
+    val port = try {
+      portLine.toInt
+    } catch {
+      case _: java.lang.NumberFormatException =>
+        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+    }
 
-    val port = 1337
+//    val port = 1337
 
     var socket: Socket = null
     while (socket == null && proc.isAlive) {
@@ -249,34 +249,34 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     )
   } else Success(())
 
-  def exec(stmt: String): SyncVar[Try[AnyRef]] = {
+  def exec(stmt: String): AnyRef = {
     Handle {
       Haltable {
         heartbeat().map(_ => async {
           run(sendStmt(stmt))
         })
       }
-    }
+    }.get.get
   }
 
-  def eval(expr: String): SyncVar[Try[AnyRef]] = {
+  def eval(expr: String): AnyRef = {
     Handle {
       Haltable {
         heartbeat().map(_ => async {
           run(sendExpr(expr))
         })
       }
-    }
+    }.get.get
   }
 
-  def assign(varName: String, value: AnyRef): SyncVar[Try[AnyRef]] = {
+  def assign(varName: String, value: AnyRef): AnyRef = {
     Handle {
       Haltable {
         heartbeat().map(_ => async {
           run(sendAssn(varName, value))
         })
       }
-    }
+    }.get.get
   }
 
 //  def clientException(): Exception = {
