@@ -126,7 +126,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
   private val shuttingDown = new AtomicBoolean(false)
   private val isRunningLegitJob = new AtomicBoolean(false)
 
-//  val in = new BufferedInputStream(socket.getInputStream)
   val inReader = new BufferedReader(new InputStreamReader(socket.getInputStream))
 
   val out = new BufferedOutputStream(socket.getOutputStream)
@@ -212,9 +211,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
   private def run(send: => Unit): Try[AnyRef] = {
     send
 
-//    println("about to get inline")
     val line = inReader.readLine()
-//    println("inline", line)
     val parsed = parse(line)
 
     val msg_type = toLogo(parsed \ "type")
@@ -225,15 +222,10 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     } else {
       val message = compact(render((parsed \ "body" \ "message"))).drop(1).dropRight(1)
       val cause = compact(render(parsed \ "body" \ "cause")).drop(1).dropRight(1)
+      // Without these drop's, the strings would have quotes inside of them
       Failure(new ExtensionException(message, new Exception(cause)))
     }
 
-//    val t = readByte()
-//    val result = if (t == 0) {
-//      Success(read)
-//    } else {
-//      Failure(clientException())
-//    }
     redirectPipes()
     result
   }
@@ -279,86 +271,27 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     }.get.get
   }
 
-//  def clientException(): Exception = {
-//    val e = readString()
-//    val tb = readString()
-//    new ExtensionException(e, new Exception(tb))
-//  }
-
-  private def sendStmt(stmt: String): Unit = {
-//    out.write(Subprocess.stmtMsg)
-//    writeString(msg)
-    val msg = ("type" -> Subprocess.stmtMsg) ~ ("body" -> stmt)
+  private def sendMessage(msg: JObject): Unit = {
     out.write(compact(render(msg)).getBytes("UTF-8"))
-//    println(msg.toString)
     out.write('\n')
     out.flush()
+  }
+
+  private def sendStmt(stmt: String): Unit = {
+    val msg = ("type" -> Subprocess.stmtMsg) ~ ("body" -> stmt)
+    sendMessage(msg)
   }
 
   private def sendExpr(expr: String): Unit = {
-//    out.write(Subprocess.exprMsg)
-//    writeString(msg)
     val msg = ("type" -> Subprocess.exprMsg) ~ ("body" -> expr)
-    out.write(compact(render(msg)).getBytes("UTF-8"))
-//    println(msg.toString)
-    out.write('\n')
-    out.flush()
+    sendMessage(msg)
   }
 
   private def sendAssn(varName: String, value: AnyRef): Unit = {
-//    out.write(Subprocess.assnMsg)
-//    writeString(varName)
-//    writeString(toJson(value))
     val name_value_pair = ("varName" -> varName) ~ ("value" -> toJson(value))
     val msg = ("type" -> Subprocess.assnMsg) ~ ("body" -> name_value_pair)
-    out.write(compact(render(msg)).getBytes("UTF-8"))
-//    println(msg.toString)
-    out.write('\n')
-    out.flush()
+    sendMessage(msg)
   }
-
-//  private def read(numBytes: Int): Array[Byte] = Array.fill(numBytes)(readByte())
-
-//  private def readByte(): Byte = {
-//    val nextByte = in.read()
-//    if (nextByte == -1) {
-//      throw new IOException("Reached end of stream")
-//    }
-//    nextByte.toByte
-//  }
-//
-//  private def readInt(): Int = {
-//    (readByte() << 24) & 0xff000000 |
-//    (readByte() << 16) & 0x00ff0000 |
-//    (readByte() <<  8) & 0x0000ff00 |
-//    (readByte() <<  0) & 0x000000ff
-//  }
-//
-//  private def readString(): String = {
-//    val l = readInt()
-//    val s = new String(read(l), "UTF-8")
-//    s
-//  }
-//
-//  private def readLogo(): AnyRef = toLogo(readString())
-
-  private def writeInt(i: Int): Unit = {
-    val a = Array((i >>> 24).toByte, (i >>> 16).toByte, (i >>> 8).toByte, i.toByte)
-    out.write(a)
-  }
-
-  private def writeString(str: String): Unit = {
-    val bytes = str.getBytes("UTF-8")
-    writeInt(bytes.length)
-    out.write(bytes)
-  }
-
-//  def toJson(x: AnyRef): String = x match {
-//    case l: LogoList => "[" + l.map(toJson).mkString(", ") + "]"
-//    case b: java.lang.Boolean => if (b) "true" else "false"
-//    case Nobody => "None"
-//    case o => Dump.logoObject(o, readable = true, exporting = false)
-//  }
 
   def toJson(x: AnyRef): JValue = x match {
     case l: LogoList => l.map(toJson)
