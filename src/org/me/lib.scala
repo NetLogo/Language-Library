@@ -145,7 +145,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     }
   }
 
-  object Handle {
+  object HandleFailures {
     /**
      * Deal with Exceptions (both inside the Try and non-fatal thrown) in a NetLogo-friendly way.
      */
@@ -208,7 +208,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     result
   }
 
-  private def run(send: => Unit): Try[AnyRef] = {
+  private def receive(send: => Unit): Try[AnyRef] = {
     send
 
     val line = inReader.readLine()
@@ -232,7 +232,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
 
   def heartbeat(timeout: Duration = 1.seconds): Try[Any] = if (!isRunningLegitJob.get) {
     val hb = async {
-      run {sendStmt("")}
+      receive {sendStmt("")}
     }
     hb.get(timeout.toMillis).getOrElse(
       Failure(new ExtensionException(
@@ -242,30 +242,44 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
   } else Success(())
 
   def exec(stmt: String): AnyRef = {
-    Handle {
+    HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
-          run(sendStmt(stmt))
+          receive(sendStmt(stmt))
         })
       }
     }.get.get
   }
 
   def eval(expr: String): AnyRef = {
-    Handle {
+    HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
-          run(sendExpr(expr))
+          receive(sendExpr(expr))
         })
       }
     }.get.get
   }
 
   def assign(varName: String, value: AnyRef): AnyRef = {
-    Handle {
+    HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
-          run(sendAssn(varName, value))
+          receive(sendAssn(varName, value))
+        })
+      }
+    }.get.get
+  }
+
+  def genericJson(msg_type: Int, value: JValue): AnyRef = {
+    generic(msg_type, value)
+  }
+
+  def generic(msg_type: Int, value: AnyRef): AnyRef = {
+    HandleFailures {
+      Haltable {
+        heartbeat().map(_ => async {
+          receive(sendGeneric(msg_type, value))
         })
       }
     }.get.get
@@ -293,7 +307,14 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     sendMessage(msg)
   }
 
+  private def sendGeneric(i: Int, value: AnyRef): Unit = {
+    val msg = ("type" -> i) ~ ("body" -> toJson(value))
+    sendMessage(msg)
+  }
+
   def toJson(x: AnyRef): JValue = x match {
+    case j: JValue => j
+    case s: String => JString(s)
     case l: LogoList => l.map(toJson)
     case b: java.lang.Boolean => if (b) JBool.True else JBool.False
     case Nobody => JNothing
