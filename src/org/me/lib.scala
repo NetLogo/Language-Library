@@ -38,7 +38,7 @@ object Subprocess {
   val successMsg = 0
   val errorMsg = 1
 
-  def start[A](ws: Workspace, processStartCmd: Seq[String], processStartArgs: Seq[String], extensionName : String, extensionLongName : String): Subprocess = {
+  def start[A](ws: Workspace, processStartCmd: Seq[String], processStartArgs: Seq[String], extensionName : String, extensionLongName : String, portNumber : Int = 0): Subprocess = {
 
     def earlyFail(proc: Process, prefix: String) = {
       val stdout = readAllReady(new InputStreamReader(proc.getInputStream))
@@ -60,16 +60,18 @@ object Subprocess {
     val proc = pb.start()
 
     val pbInput = new BufferedReader(new InputStreamReader(proc.getInputStream))
-    val portLine = pbInput.readLine
 
-    val port = try {
-      portLine.toInt
-    } catch {
-      case _: java.lang.NumberFormatException =>
-        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+    val port = if (portNumber == 0) {
+      val portLine = pbInput.readLine
+      try {
+        portLine.toInt
+      } catch {
+        case _: java.lang.NumberFormatException =>
+          earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+      }
+    } else {
+      portNumber
     }
-
-//    val port = 1337
 
     var socket: Socket = null
     while (socket == null && proc.isAlive) {
