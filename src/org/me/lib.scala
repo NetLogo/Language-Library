@@ -33,6 +33,7 @@ object Subprocess {
   val stmtMsg = 0
   val exprMsg = 1
   val assnMsg = 2
+  val exprStringifiedMsg = 3
 
   // In types
   val successMsg = 0
@@ -82,8 +83,14 @@ object Subprocess {
         case e: SecurityException => throw new ExtensionException(e)
       }
     }
+
     if (!proc.isAlive) { earlyFail(proc, s"Process terminated early.")}
-    new Subprocess(ws, proc, socket, extensionName, extensionLongName)
+    val subprocess = new Subprocess(ws, proc, socket, extensionName, extensionLongName)
+
+    val shellWindow = new ShellWindow(subprocess.evalStringified);
+    shellWindow.setVisible(true);
+
+    subprocess
   }
 
   def readAllReady(in: InputStreamReader): String = {
@@ -263,6 +270,16 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     }.get.get
   }
 
+  def evalStringified(expr: String): AnyRef = {
+    HandleFailures {
+      Haltable {
+        heartbeat().map(_ => async {
+          receive(sendExprStringified(expr))
+        })
+      }
+    }.get.get
+  }
+
   def assign(varName: String, value: AnyRef): AnyRef = {
     HandleFailures {
       Haltable {
@@ -300,6 +317,11 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
 
   private def sendExpr(expr: String): Unit = {
     val msg = ("type" -> Subprocess.exprMsg) ~ ("body" -> expr)
+    sendMessage(msg)
+  }
+
+  private def sendExprStringified(expr: String): Unit = {
+    val msg = ("type" -> Subprocess.exprStringifiedMsg) ~ ("body" -> expr)
     sendMessage(msg)
   }
 
