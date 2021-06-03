@@ -8,61 +8,68 @@ class ShellWindow(eval_stringified: (String) => AnyRef) extends JFrame with KeyL
   var cmdHistory : Seq[String] = Seq()
   private var cmdHistoryIndex = 0;
   private var cmdHistoryFirst = true;
+  private var menuItemCallbacks : Map[String, (ActionEvent) => Unit] = Map()
 
   private val consolePanel: JSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT)
   val output = new JTextArea()
   val input = new JTextArea()
-  input.addKeyListener(this)
-
-  val sp1 = new JScrollPane(output)
-  sp1.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
-  consolePanel.setTopComponent(sp1)
-
-  val sp2 = new JScrollPane(input)
-  sp2.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
-  consolePanel.setBottomComponent(sp2)
-
-  this.getContentPane.setLayout(new BorderLayout)
-  this.getContentPane.add(consolePanel, BorderLayout.CENTER)
-  this.setMinimumSize(new Dimension(555, 650))
-  this.setSize(new Dimension(555, 650))
-  output.setEditable(false)
-
-  consolePanel.setDividerLocation((this.getHeight.asInstanceOf[Double] * 0.65).toInt)
-  this.addComponentListener(new ComponentAdapter() {
-    override def componentResized(evt: ComponentEvent): Unit = {
-      super.componentResized(evt)
-      consolePanel.setDividerLocation((getHeight.asInstanceOf[Double] * 0.65).toInt)
-    }
-  })
-
   val contextMenu = new JPopupMenu("Edit")
-  contextMenu.add(makeMenuItem("Clear all"))
-  contextMenu.add(makeMenuItem("Clear Window"))
-  contextMenu.add(makeMenuItem("Clear History"))
-  contextMenu.add(makeMenuItem("Save History to File"))
-  contextMenu.add(makeMenuItem("Load Histroy from File"))
-  output.setComponentPopupMenu(contextMenu)
-  input.setComponentPopupMenu(contextMenu)
-  output.setInheritsPopupMenu(true)
-  input.setInheritsPopupMenu(true)
+
+  initPanels()
+  addRightClickMenuItem("Clear Output Text", (e : ActionEvent) => {output.setText("")})
+  addRightClickMenuItem("Clear Input Text", (e : ActionEvent) => {input.setText("")})
 
 
-  override def actionPerformed(e: ActionEvent) {
-    println("Action Performed")
-    println(e)
+  private def initPanels(): Unit = {
+    input.addKeyListener(this)
+
+    val sp1 = new JScrollPane(output)
+    sp1.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
+    consolePanel.setTopComponent(sp1)
+
+    val sp2 = new JScrollPane(input)
+    sp2.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
+    consolePanel.setBottomComponent(sp2)
+
+    this.getContentPane.setLayout(new BorderLayout)
+    this.getContentPane.add(consolePanel, BorderLayout.CENTER)
+    this.setMinimumSize(new Dimension(555, 650))
+    this.setSize(new Dimension(555, 650))
+    output.setEditable(false)
+
+    consolePanel.setDividerLocation((this.getHeight.asInstanceOf[Double] * 0.65).toInt)
+    this.addComponentListener(new ComponentAdapter() {
+      override def componentResized(evt: ComponentEvent): Unit = {
+        super.componentResized(evt)
+        consolePanel.setDividerLocation((getHeight.asInstanceOf[Double] * 0.65).toInt)
+      }
+    })
+
+    output.setComponentPopupMenu(contextMenu)
+    input.setComponentPopupMenu(contextMenu)
+    output.setInheritsPopupMenu(true)
+    input.setInheritsPopupMenu(true)
+
+    output.setText(
+      "Usage:\n\n"
+      + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
+      + "Use page up/down to recall previously submitted commands.\n\n"
+    )
   }
 
-  /**
-   * A method to create context menu
-   *
-   * @param label Name of the context item added
-   * @return A menu item
-   */
-  private def makeMenuItem (label: String): JMenuItem = {
+  def addRightClickMenuItem(label: String, callback: (ActionEvent) => Unit): Unit = {
     val item: JMenuItem = new JMenuItem (label)
     item.addActionListener (this)
-    item
+    menuItemCallbacks = menuItemCallbacks + (label -> callback)
+    contextMenu.add(item)
+  }
+
+  override def actionPerformed(e: ActionEvent) {
+    val command = e.getActionCommand
+    menuItemCallbacks get command match {
+      case Some(callback) => callback(e)
+      case None =>
+    }
   }
 
   override def keyTyped(ke: KeyEvent): Unit = {

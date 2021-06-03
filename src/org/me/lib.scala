@@ -7,6 +7,7 @@ import org.nlogo.api.Exceptions.ignoring
 
 import java.net.Socket
 import org.nlogo.api.{ExtensionException, OutputDestination, Workspace}
+import org.nlogo.app.App
 import org.nlogo.core.{Dump, LogoList, Nobody}
 import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
@@ -17,7 +18,7 @@ import java.io.{BufferedInputStream, BufferedOutputStream, BufferedReader, File,
 import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.swing.SwingUtilities
+import javax.swing.{JMenu, SwingUtilities}
 import scala.concurrent.SyncVar
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.{Failure, Success, Try}
@@ -39,41 +40,44 @@ object Subprocess {
   val successMsg = 0
   val errorMsg = 1
 
-  def start[A](ws: Workspace, processStartCmd: Seq[String], processStartArgs: Seq[String], extensionName : String, extensionLongName : String, portNumber : Int = 0): Subprocess = {
 
-    def earlyFail(proc: Process, prefix: String) = {
-      val stdout = readAllReady(new InputStreamReader(proc.getInputStream))
-      val stderr = readAllReady(new InputStreamReader(proc.getErrorStream))
-      val msg = (stderr, stdout) match {
-        case ("", s) => s
-        case (s, "") => s
-        case (e, o) => s"Error output:\n$e\n\nOutput:\n$o"
-      }
-      throw new ExtensionException(s"prefix\n$msg")
-    }
 
-    ws.getExtensionManager
-
+  def start[A](ws: Workspace, processStartCmd: Seq[String], processStartArgs: Seq[String], extensionName : String, extensionLongName : String, suppliedPort : Int = 0): Subprocess = {
     val prefix = new File(ws.asInstanceOf[AbstractWorkspace].fileManager.prefix)
-
     val workingDirectory = if (prefix.exists) prefix else new File(System.getProperty("user.home"))
     val pb = new ProcessBuilder(cmd(processStartCmd ++ processStartArgs).asJava).directory(workingDirectory)
     val proc = pb.start()
-
     val pbInput = new BufferedReader(new InputStreamReader(proc.getInputStream))
 
-    val port = if (portNumber == 0) {
-      val portLine = pbInput.readLine
-      try {
-        portLine.toInt
-      } catch {
-        case _: java.lang.NumberFormatException =>
-          earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
-      }
+    val port = if (suppliedPort != 0) {
+      suppliedPort
     } else {
-      portNumber
+      getPortFromProc(proc, pbInput)
     }
 
+    val socket = getSocketConnection(proc, port)
+
+    if (!proc.isAlive) { earlyFail(proc, s"Process terminated early.")}
+    val subprocess = new Subprocess(ws, proc, socket, extensionName, extensionLongName)
+
+    // This is being created in the totally wrong place right now
+    val shellWindow = new ShellWindow(subprocess.evalStringified);
+    shellWindow.setVisible(true);
+
+    subprocess
+  }
+
+  private def getPortFromProc[A](proc: Process, pbInput: BufferedReader): Int = {
+    val portLine = pbInput.readLine
+    try {
+      portLine.toInt
+    } catch {
+      case _: NumberFormatException =>
+        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+    }
+  }
+
+  private def getSocketConnection(proc: Process, port : Int) : Socket = {
     var socket: Socket = null
     while (socket == null && proc.isAlive) {
       try {
@@ -83,17 +87,21 @@ object Subprocess {
         case e: SecurityException => throw new ExtensionException(e)
       }
     }
-
-    if (!proc.isAlive) { earlyFail(proc, s"Process terminated early.")}
-    val subprocess = new Subprocess(ws, proc, socket, extensionName, extensionLongName)
-
-    val shellWindow = new ShellWindow(subprocess.evalStringified);
-    shellWindow.setVisible(true);
-
-    subprocess
+    socket
   }
 
-  def readAllReady(in: InputStreamReader): String = {
+  def earlyFail(proc: Process, prefix: String) : Nothing = {
+    val stdout = readAllReady(new InputStreamReader(proc.getInputStream))
+    val stderr = readAllReady(new InputStreamReader(proc.getErrorStream))
+    val msg = (stderr, stdout) match {
+      case ("", s) => s
+      case (s, "") => s
+      case (e, o) => s"Error output:\n$e\n\nOutput:\n$o"
+    }
+    throw new ExtensionException(s"prefix\n$msg")
+  }
+
+  private def readAllReady(in: InputStreamReader): String = {
     val sb = new StringBuilder
     while (in.ready) sb.append(in.read().toChar)
     sb.toString
@@ -130,7 +138,28 @@ object Subprocess {
 
 }
 
+object LanguageServerMenu {
+
+}
+
+class LanguageServerMenu(name : String) extends JMenu(name) {
+  add("Item")
+  add("Another Item")
+}
+
 class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : String, extensionLongName : String) {
+
+  // TODO: make this init on extension loading, not on subprocess starting. will take some refactoring
+  var languageServerMenu: Option[JMenu] = None
+  if (!ws.isHeadless) {
+    val menuBar = App.app.frame.getJMenuBar
+
+    menuBar.getComponents.collectFirst {
+      case mi: JMenu if mi.getText ==  extensionName => mi
+    }.getOrElse {
+      languageServerMenu = Option(menuBar.add(new LanguageServerMenu(extensionName)))
+    }
+  }
 
   private val shuttingDown = new AtomicBoolean(false)
   private val isRunningLegitJob = new AtomicBoolean(false)
