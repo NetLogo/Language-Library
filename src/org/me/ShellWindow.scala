@@ -4,7 +4,8 @@ import java.awt.event._
 import java.awt.{BorderLayout, Dimension}
 import javax.swing._
 
-class ShellWindow(eval_stringified: (String) => AnyRef) extends JFrame with KeyListener with ActionListener {
+class ShellWindow extends JFrame with KeyListener with ActionListener {
+  var eval_stringified : Option[(String) => String] = None
   var cmdHistory : Seq[String] = Seq()
   private var cmdHistoryIndex = 0;
   private var cmdHistoryFirst = true;
@@ -88,8 +89,11 @@ class ShellWindow(eval_stringified: (String) => AnyRef) extends JFrame with KeyL
       input.requestFocus()
 
       output.append(">> " + cmd + "\n")
-      val res = eval_stringified(cmd)
-      output.append(res.toString + "\n")
+
+      eval_stringified match {
+        case Some(f) => output.append(f(cmd))
+        case None => output.append("This extension has not been properly initialized yet.\n")
+      }
     }
   }
 

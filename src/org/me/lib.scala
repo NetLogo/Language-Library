@@ -40,8 +40,6 @@ object Subprocess {
   val successMsg = 0
   val errorMsg = 1
 
-
-
   def start[A](ws: Workspace, processStartCmd: Seq[String], processStartArgs: Seq[String], extensionName : String, extensionLongName : String, suppliedPort : Int = 0): Subprocess = {
     val prefix = new File(ws.asInstanceOf[AbstractWorkspace].fileManager.prefix)
     val workingDirectory = if (prefix.exists) prefix else new File(System.getProperty("user.home"))
@@ -59,10 +57,6 @@ object Subprocess {
 
     if (!proc.isAlive) { earlyFail(proc, s"Process terminated early.")}
     val subprocess = new Subprocess(ws, proc, socket, extensionName, extensionLongName)
-
-    // This is being created in the totally wrong place right now
-    val shellWindow = new ShellWindow(subprocess.evalStringified);
-    shellWindow.setVisible(true);
 
     subprocess
   }
@@ -299,14 +293,14 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
     }.get.get
   }
 
-  def evalStringified(expr: String): AnyRef = {
+  def evalStringified(expr: String): String = {
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
           receive(sendExprStringified(expr))
         })
       }
-    }.get.get
+    }.get.get.toString
   }
 
   def assign(varName: String, value: AnyRef): AnyRef = {
