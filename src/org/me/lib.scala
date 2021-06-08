@@ -195,8 +195,8 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : S
   }
 
   def ensureValidNum(d: Double): Double = d match {
-    case x if x.isInfinite => throw new ExtensionException("External language reported a number too large for NetLogo.")
-    case x if x.isNaN => throw new ExtensionException("External language reported a non-numeric value from a mathematical operation.")
+    case x if x.isInfinite => throw new ExtensionException(extensionLongName + " reported a number too large for NetLogo.")
+    case x if x.isNaN => throw new ExtensionException(extensionLongName + " reported a non-numeric value from a mathematical operation.")
     case x => x
   }
 
