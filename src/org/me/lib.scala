@@ -132,28 +132,7 @@ object Subprocess {
 
 }
 
-object LanguageServerMenu {
-
-}
-
-class LanguageServerMenu(name : String) extends JMenu(name) {
-  add("Item")
-  add("Another Item")
-}
-
 class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName : String, extensionLongName : String) {
-
-  // TODO: make this init on extension loading, not on subprocess starting. will take some refactoring
-  var languageServerMenu: Option[JMenu] = None
-  if (!ws.isHeadless) {
-    val menuBar = App.app.frame.getJMenuBar
-
-    menuBar.getComponents.collectFirst {
-      case mi: JMenu if mi.getText ==  extensionName => mi
-    }.getOrElse {
-      languageServerMenu = Option(menuBar.add(new LanguageServerMenu(extensionName)))
-    }
-  }
 
   private val shuttingDown = new AtomicBoolean(false)
   private val isRunningLegitJob = new AtomicBoolean(false)
