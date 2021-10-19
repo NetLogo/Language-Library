@@ -51,6 +51,9 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     output.setInheritsPopupMenu(true)
     input.setInheritsPopupMenu(true)
 
+    input.setTabSize(2)
+    output.setTabSize(2)
+
     output.setText(
       "Usage:\n\n"
       + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
