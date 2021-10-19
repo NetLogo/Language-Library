@@ -5,11 +5,11 @@ import java.awt.{BorderLayout, Dimension}
 import javax.swing._
 
 class ShellWindow extends JFrame with KeyListener with ActionListener {
-  var eval_stringified : Option[(String) => String] = None
-  var cmdHistory : Seq[String] = Seq()
+  var eval_stringified: Option[(String) => String] = None
+  var cmdHistory: Seq[String] = Seq()
   private var cmdHistoryIndex = 0;
   private var cmdHistoryFirst = true;
-  private var menuItemCallbacks : Map[String, (ActionEvent) => Unit] = Map()
+  private var menuItemCallbacks: Map[String, (ActionEvent) => Unit] = Map()
 
   private val consolePanel: JSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT)
   val output = new JTextArea()
@@ -17,8 +17,12 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
   val contextMenu = new JPopupMenu("Edit")
 
   initPanels()
-  addRightClickMenuItem("Clear Output Text", (e : ActionEvent) => {output.setText("")})
-  addRightClickMenuItem("Clear Input Text", (e : ActionEvent) => {input.setText("")})
+  addRightClickMenuItem("Clear Output Text", (e: ActionEvent) => {
+    output.setText("")
+  })
+  addRightClickMenuItem("Clear Input Text", (e: ActionEvent) => {
+    input.setText("")
+  })
 
 
   private def initPanels(): Unit = {
@@ -56,14 +60,14 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
 
     output.setText(
       "Usage:\n\n"
-      + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
-      + "Use page up/down to recall previously submitted commands.\n\n"
+        + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
+        + "Use page up/down to recall previously submitted commands.\n\n"
     )
   }
 
   def addRightClickMenuItem(label: String, callback: (ActionEvent) => Unit): Unit = {
-    val item: JMenuItem = new JMenuItem (label)
-    item.addActionListener (this)
+    val item: JMenuItem = new JMenuItem(label)
+    item.addActionListener(this)
     menuItemCallbacks = menuItemCallbacks + (label -> callback)
     contextMenu.add(item)
   }

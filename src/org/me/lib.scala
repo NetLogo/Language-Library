@@ -23,10 +23,11 @@ import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.{Failure, Success, Try}
 
 
+/**
+ * A Subprocess manages the system subprocess running the target language code and the network socket that carries
+ * messages between the extension code and the target language code.
+ */
 object Subprocess {
-  // In and out
-  val typeSize = 1
-
   // Out types
   val stmtMsg = 0
   val exprMsg = 1
@@ -37,6 +38,19 @@ object Subprocess {
   val successMsg = 0
   val errorMsg = 1
 
+  /**
+   * Create and start a new subprocess
+   *
+   * @param ws                The NetLogo workspace
+   * @param processStartCmd   The command used to start the subprocess. e.g. for the python extension,
+   *                          this is the path to the chosen python binary
+   * @param processStartArgs  Any args that need to be passed in to the shell command
+   * @param extensionName     The name of the extension. e.g "py" for the python extension
+   * @param extensionLongName A longer, more readable name for the extension. e.g. "Python" for the python extension
+   * @param suppliedPort      If your process does not find its own port to use (and send it as the first line out of its
+   *                          stdout) then you need to specify a port to use here.
+   * @return A new subprocess
+   */
   def start(ws: Workspace,
             processStartCmd: Seq[String],
             processStartArgs: Seq[String],
@@ -61,6 +75,11 @@ object Subprocess {
     return new Subprocess(ws, proc, socket, extensionName, extensionLongName)
   }
 
+  /**
+   * Get the PATH for the system
+   *
+   * @return the PATH
+   */
   def path: Seq[File] = {
     val basePath = System.getenv("PATH")
     val os = System.getProperty("os.name").toLowerCase
@@ -167,6 +186,12 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
   //---------------------------Public Methods--------------------------------
+  /**
+   * Send an "exec" commmand to the subproccess with the given statement
+   *
+   * @param stmt the statement to give
+   * @return The message passed back, converted to a NetLogo object
+   */
   def exec(stmt: String): AnyRef = {
     HandleFailures {
       Haltable {
@@ -177,6 +202,12 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }.get.get
   }
 
+  /**
+   * Send an "eval" commmand to the subproccess with the given expression
+   *
+   * @param expr the expression to evaluate
+   * @return The message passed back, converted to a NetLogo object
+   */
   def eval(expr: String): AnyRef = {
     HandleFailures {
       Haltable {
@@ -187,6 +218,13 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }.get.get
   }
 
+  /**
+   * Send an "evalStringigied" command to the subproccess with the given expression. Used to create a pop-out
+   * interpreter
+   *
+   * @param expr the expression to evaluate
+   * @return The stringified result
+   */
   def evalStringified(expr: String): String = {
     HandleFailures {
       Haltable {
@@ -197,6 +235,14 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }.get.get.toString
   }
 
+  /**
+   * Send an "assign" command to the subprocess with the given variable name (for the target environment) and value (a
+   * NetLogo object).
+   *
+   * @param varName The variable name
+   * @param value
+   * @return
+   */
   def assign(varName: String, value: AnyRef): AnyRef = {
     HandleFailures {
       Haltable {
@@ -207,10 +253,24 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }.get.get
   }
 
+  /**
+   * Send a generic message to the subprocces, which it can interpret however it wishes, along with a body as JSON.
+   *
+   * @param msg_type An integer representing the type of message to be sent
+   * @param value    a value to send
+   * @return the value sent back from the subprocess
+   */
   def genericJson(msg_type: Int, value: JValue): AnyRef = {
     generic(msg_type, value)
   }
 
+  /**
+   * Send a generic message to the subprocces, which it can interpret however it wishes, along with a body
+   *
+   * @param msg_type An integer representing the type of message to be sent
+   * @param value    a value to send
+   * @return The value sent back from the subprocess
+   */
   def generic(msg_type: Int, value: AnyRef): AnyRef = {
     HandleFailures {
       Haltable {
@@ -221,6 +281,9 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }.get.get
   }
 
+  /**
+   * Shut down the subprocess.
+   */
   def close(): Unit = {
     shuttingDown.set(true)
     executor.shutdownNow()
