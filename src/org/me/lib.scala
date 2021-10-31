@@ -1,5 +1,7 @@
 package org.me
 
+import org.json4s
+import org.json4s.JValue
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
@@ -8,6 +10,8 @@ import org.nlogo.api.{ExtensionException, OutputDestination, Workspace}
 import org.nlogo.core.{Dump, LogoList, Nobody}
 import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
+import org.nlogo.agent
+import org.nlogo.agent.{Agent, AgentSet}
 
 import java.awt.GraphicsEnvironment
 import java.io._
@@ -452,7 +456,22 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     case l: LogoList => l.map(toJson)
     case b: java.lang.Boolean => if (b) JBool.True else JBool.False
     case Nobody => JNothing
+    case agent: agent.Agent => agentToJson(agent)
+    case set: agent.AgentSet => set.toLogoList.map(agent => agentToJson(agent.asInstanceOf[Agent]))
     case o => parse(Dump.logoObject(o, readable = true, exporting = false))
+  }
+
+  def agentToJson(agent: Agent) : JValue = {
+    var obj : JObject = org.json4s.JObject()
+    agent.variables.indices.foreach(i => {
+      val name = agent.variableName(i)
+      val value = agent.getVariable(i) match {
+        case set : AgentSet => toJson(set.printName) // Avoid possible circular references
+        case other : AnyRef => toJson(other)
+      }
+      obj = obj ~ (name -> value)
+    })
+    obj
   }
 
   private def toLogo(s: String): AnyRef = toLogo(parse(s))
