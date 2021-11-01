@@ -7,7 +7,7 @@ import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 import org.nlogo.api.Exceptions.ignoring
 import org.nlogo.api.{ExtensionException, OutputDestination, Workspace}
-import org.nlogo.core.{Dump, LogoList, Nobody}
+import org.nlogo.core.{Dump, LogoList, Nobody, Syntax}
 import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
 import org.nlogo.agent
@@ -41,6 +41,9 @@ object Subprocess {
   // In types
   val successMsg = 0
   val errorMsg = 1
+
+  // All of the things that can be converted into Json to be passed to the target language code
+  val convertibleTypesSyntax: Int = Syntax.AgentType | Syntax.AgentsetType | Syntax.ReadableType
 
   /**
    * Create and start a new subprocess
@@ -76,7 +79,7 @@ object Subprocess {
       earlyFail(proc, s"Process terminated early.")
     }
 
-    return new Subprocess(ws, proc, socket, extensionName, extensionLongName)
+    new Subprocess(ws, proc, socket, extensionName, extensionLongName)
   }
 
   /**
@@ -99,21 +102,19 @@ object Subprocess {
     unsplitPath.split(File.pathSeparatorChar).map(new File(_)).filter(f => f.isDirectory)
   }
 
+  /**
+   * If specifiedPort is non-zero, use it, otherwise read from the process' first line of stdout and use that as
+   * the port
+   * @param suppliedPort the port to be used, if non-zero
+   * @param proc the actual subprocess
+   * @return
+   */
   private def choosePort(suppliedPort: Int, proc: Process) = {
     if (suppliedPort != 0) {
       suppliedPort
     } else {
       val pbInput = new BufferedReader(new InputStreamReader(proc.getInputStream))
       extractPortFromProc(proc, pbInput)
-    }
-  }
-
-  private def getWorkingDirectory(ws: Workspace) = {
-    val prefix = new File(ws.asInstanceOf[AbstractWorkspace].fileManager.prefix)
-    if (prefix.exists) {
-      prefix
-    } else {
-      new File(System.getProperty("user.home"))
     }
   }
 
@@ -124,6 +125,15 @@ object Subprocess {
     } catch {
       case _: NumberFormatException =>
         earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+    }
+  }
+
+  private def getWorkingDirectory(ws: Workspace) = {
+    val prefix = new File(ws.asInstanceOf[AbstractWorkspace].fileManager.prefix)
+    if (prefix.exists) {
+      prefix
+    } else {
+      new File(System.getProperty("user.home"))
     }
   }
 
@@ -148,7 +158,7 @@ object Subprocess {
       case (s, "") => s
       case (e, o) => s"Error output:\n$e\n\nOutput:\n$o"
     }
-    throw new ExtensionException(s"prefix\n$msg")
+    throw new ExtensionException(s"$prefix\n$msg")
   }
 
   private def readAllReady(in: InputStreamReader): String = {
