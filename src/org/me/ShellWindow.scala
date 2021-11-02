@@ -4,18 +4,27 @@ import java.awt.event._
 import java.awt.{BorderLayout, Dimension}
 import javax.swing._
 
+/**
+ * A ShellWindow lets users interact with the target language through an
+ * interactive shell/REPL. It handles most all of its own functionality.
+ * The extension code only needs to manage its lifecycle and set an
+ * `eval_stringified` function to be called when evaluating input code.
+ */
 class ShellWindow extends JFrame with KeyListener with ActionListener {
+  // **functional state**
   var eval_stringified: Option[(String) => String] = None
   var cmdHistory: Seq[String] = Seq()
   private var cmdHistoryIndex = 0;
   private var cmdHistoryFirst = true;
   private var menuItemCallbacks: Map[String, (ActionEvent) => Unit] = Map()
 
+  // **Swing objects**
   private val consolePanel: JSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT)
   val output = new JTextArea()
   val input = new JTextArea()
   val contextMenu = new JPopupMenu("Edit")
 
+  // **Setup**
   initPanels()
   addRightClickMenuItem("Clear Output Text", (e: ActionEvent) => {
     output.setText("")
@@ -24,6 +33,7 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     input.setText("")
   })
 
+  // -------------------------Helpers------------------------------------------
 
   private def initPanels(): Unit = {
     input.addKeyListener(this)
@@ -65,12 +75,14 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     )
   }
 
-  def addRightClickMenuItem(label: String, callback: (ActionEvent) => Unit): Unit = {
+  private def addRightClickMenuItem(label: String, callback: (ActionEvent) => Unit): Unit = {
     val item: JMenuItem = new JMenuItem(label)
     item.addActionListener(this)
     menuItemCallbacks = menuItemCallbacks + (label -> callback)
     contextMenu.add(item)
   }
+
+  // -------------------------Listeners----------------------------------------
 
   override def actionPerformed(e: ActionEvent) {
     val command = e.getActionCommand

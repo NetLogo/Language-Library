@@ -32,6 +32,7 @@ import scala.util.{Failure, Success, Try}
  * messages between the extension code and the target language code.
  */
 object Subprocess {
+  //-------------------------Constants----------------------------------------
   // Out types
   val stmtMsg = 0
   val exprMsg = 1
@@ -45,6 +46,7 @@ object Subprocess {
   // All of the things that can be converted into Json to be passed to the target language code
   val convertibleTypesSyntax: Int = Syntax.AgentType | Syntax.AgentsetType | Syntax.ReadableType
 
+  //-------------------------Public Methods------------------------------------
   /**
    * Create and start a new subprocess
    *
@@ -102,6 +104,7 @@ object Subprocess {
     unsplitPath.split(File.pathSeparatorChar).map(new File(_)).filter(f => f.isDirectory)
   }
 
+  //-------------------------Private Methods-----------------------------------
   /**
    * If specifiedPort is non-zero, use it, otherwise read from the process' first line of stdout and use that as
    * the port
@@ -254,10 +257,10 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * NetLogo object).
    *
    * @param varName The variable name
-   * @param value
+   * @param value the value
    * @return
    */
-  def assign(varName: String, value: AnyRef): AnyRef = {
+  def assign(varName: String, value: AnyRef): Unit = {
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -310,7 +313,42 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
       throw new ExtensionException(s"${extensionLongName} process failed to shutdown. Please shut it down via your process manager")
   }
 
-  //---------------------------Private Methods--------------------------------
+  //---------------------------Private Utilities-------------------------------
+
+  private def ensureValidNum(d: Double): Double = d match {
+    case x if x.isInfinite => throw new ExtensionException(extensionLongName + " reported a number too large for NetLogo.")
+    case x if x.isNaN => throw new ExtensionException(extensionLongName + " reported a non-numeric value from a mathematical operation.")
+    case x => x
+  }
+
+  /**
+   * Output to the command center (if not headless) or stdout (if headless)
+   * @param s
+   */
+  private def output(s: String): Unit = {
+    if (GraphicsEnvironment.isHeadless || System.getProperty("org.nlogo.preferHeadless") == "true")
+      println(s)
+    else
+      SwingUtilities.invokeLater { () =>
+        ws.outputObject(s, null, addNewline = true, readable = false, OutputDestination.Normal)
+      }
+  }
+
+  /**
+   * Send subprocess' stdout to the command center if not headless
+   */
+  private def redirectPipes(): Unit = {
+    val stdoutContents = Subprocess.readAllReady(stdout)
+    val stderrContents = Subprocess.readAllReady(stderr)
+    if (stdoutContents.nonEmpty)
+      output(stdoutContents)
+    if (stderrContents.nonEmpty)
+      output(s"${extensionLongName} Error output:\n$stderrContents")
+  }
+
+  //--------------------Asynchronous message passing functionality-------------
+  private def invalidateJobs(): Unit = isRunningLegitJob.set(false)
+
   private object Haltable {
     def apply[R](body: => R): R = {
       try {
@@ -343,30 +381,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
         case Success(x) => x
       }
     }
-  }
-
-  private def ensureValidNum(d: Double): Double = d match {
-    case x if x.isInfinite => throw new ExtensionException(extensionLongName + " reported a number too large for NetLogo.")
-    case x if x.isNaN => throw new ExtensionException(extensionLongName + " reported a non-numeric value from a mathematical operation.")
-    case x => x
-  }
-
-  private def output(s: String): Unit = {
-    if (GraphicsEnvironment.isHeadless || System.getProperty("org.nlogo.preferHeadless") == "true")
-      println(s)
-    else
-      SwingUtilities.invokeLater { () =>
-        ws.outputObject(s, null, addNewline = true, readable = false, OutputDestination.Normal)
-      }
-  }
-
-  private def redirectPipes(): Unit = {
-    val stdoutContents = Subprocess.readAllReady(stdout)
-    val stderrContents = Subprocess.readAllReady(stderr)
-    if (stdoutContents.nonEmpty)
-      output(stdoutContents)
-    if (stderrContents.nonEmpty)
-      output(s"${extensionLongName} Error output:\n$stderrContents")
   }
 
   private def async[R](body: => Try[R]): SyncVar[Try[R]] = {
@@ -428,6 +442,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     } else Success(())
   }
 
+  // --------------------Actual Message Formulation----------------------------
   private def sendMessage(msg: JObject): Unit = {
     out.write(compact(render(msg)).getBytes("UTF-8"))
     out.write('\n')
@@ -460,6 +475,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     sendMessage(msg)
   }
 
+  //------------------------Conversion Utilities-------------------------------
   private def toJson(x: AnyRef): JValue = x match {
     case j: JValue => j
     case s: String => JString(s)
@@ -484,8 +500,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     obj
   }
 
-  private def toLogo(s: String): AnyRef = toLogo(parse(s))
-
   private def toLogo(x: JValue): AnyRef = x match {
     case JNothing => Nobody
     case JNull => Nobody
@@ -500,5 +514,4 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     case JSet(set) => LogoList.fromVector(set.map(toLogo).toVector)
   }
 
-  private def invalidateJobs(): Unit = isRunningLegitJob.set(false)
 }
