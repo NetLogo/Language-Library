@@ -8,12 +8,12 @@ import javax.swing._
  * A ShellWindow lets users interact with the target language through an
  * interactive shell/REPL. It handles most all of its own functionality.
  * The extension code only needs to manage its lifecycle and set an
- * `eval_stringified` function to be called when evaluating input code.
+ * `evalStringified` function to be called when evaluating input code.
  */
 class ShellWindow extends JFrame with KeyListener with ActionListener {
   // **functional state**
-  var eval_stringified: Option[(String) => String] = None
-  var cmdHistory: Seq[String] = Seq()
+  private var evalStringified: Option[(String) => String] = None
+  private var cmdHistory: Seq[String] = Seq()
   private var cmdHistoryIndex = 0;
   private var cmdHistoryFirst = true;
   private var menuItemCallbacks: Map[String, (ActionEvent) => Unit] = Map()
@@ -32,6 +32,16 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
   addRightClickMenuItem("Clear Input Text", (e: ActionEvent) => {
     input.setText("")
   })
+
+  // ---------------------Getters and Setters----------------------------------
+
+  def setEvalStringified(_evalStringified: Option[(String) => String]): Unit = {
+    evalStringified = _evalStringified
+  }
+
+  def getEvalStringified: Option[(String) => String] = evalStringified
+
+  def getCmdHistory: Seq[String] = cmdHistory
 
   // -------------------------Helpers------------------------------------------
 
@@ -99,8 +109,10 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     if (ke.isControlDown && ke.getKeyCode == KeyEvent.VK_ENTER) {
       val cmd = input.getText.trim
 
-      cmdHistory :+= cmd
-      cmdHistoryIndex = cmdHistory.size - 1
+      if (cmdHistory.isEmpty || cmdHistory.last != cmd) { // ignore repeated identical commands
+        cmdHistory :+= cmd
+        cmdHistoryIndex = cmdHistory.size - 1
+      }
       cmdHistoryFirst = true
 
       input.setText("")
@@ -109,7 +121,7 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
 
       output.append(">> " + cmd + "\n")
 
-      eval_stringified match {
+      evalStringified match {
         case Some(f) => output.append(f(cmd) + "\n")
         case None => output.append("This extension has not been properly initialized yet.\n")
       }

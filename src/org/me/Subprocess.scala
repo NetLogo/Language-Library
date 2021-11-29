@@ -94,10 +94,10 @@ object Subprocess {
     val os = System.getProperty("os.name").toLowerCase
 
     val unsplitPath = if (os.contains("mac") && basePath == "/usr/bin:/bin:/usr/sbin:/sbin")
-    // On MacOS, .app files are executed with a neutered PATH environment variable. The problem is that if users are
-    // using Homebrew Python or similar, it won't be on that PATH. So, we check if we're on MacOS and if we have that
-    // neuteredPATH. If so, we want to execute with the users actual PATH. We use `path_helper` to get that. It's not
-    // perfect; it will miss PATHs defined in certain files, but hopefully it's good enough.
+    // On MacOS, .app files are executed with a neutered PATH environment variable.
+    // So, we check if we're on MacOS and if we have that neuteredPATH. If so, we want to execute with the users
+    // actual PATH. We use `path_helper` to get that. It's not perfect; it will miss PATHs defined in certain files,
+    // but hopefully it's good enough.
       getSysCmdOutput("/bin/bash", "-l", "-c", "echo $PATH").head + basePath
     else
       basePath
