@@ -1,6 +1,6 @@
-organization := "org.me"
+organization := "org.nlogo.langextension"
 version := "0.1-SNAPSHOT"
-name := "netlogo-extension-language-server-library"
+name := "lang-extension-lib"
 
 isSnapshot := true
 

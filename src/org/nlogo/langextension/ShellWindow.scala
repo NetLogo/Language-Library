@@ -1,4 +1,4 @@
-package org.me
+package org.nlogo.langextension
 
 import java.awt.event._
 import java.awt.{BorderLayout, Dimension}

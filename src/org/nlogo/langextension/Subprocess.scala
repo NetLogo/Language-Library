@@ -1,4 +1,4 @@
-package org.me
+package org.nlogo.langextension
 
 import org.json4s
 import org.json4s.JValue
