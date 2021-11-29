@@ -487,12 +487,13 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     case o => parse(Dump.logoObject(o, readable = true, exporting = false))
   }
 
-  def agentToJson(agent: Agent) : JValue = {
+  private def agentToJson(agent: Agent) : JValue = {
     var obj : JObject = org.json4s.JObject()
     agent.variables.indices.foreach(i => {
       val name = agent.variableName(i)
       val value = agent.getVariable(i) match {
-        case set : AgentSet => toJson(set.printName) // Avoid possible circular references
+        case set : AgentSet => toJson(set.printName) // <plural agentset name>
+        case agent : Agent => toJson(agent.toString) // <singular agentset name> <id>
         case other : AnyRef => toJson(other)
       }
       obj = obj ~ (name -> value)
