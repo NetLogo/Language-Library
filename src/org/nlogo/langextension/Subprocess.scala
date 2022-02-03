@@ -65,7 +65,7 @@ object Subprocess {
             processStartArgs: Seq[String],
             extensionName: String,
             extensionLongName: String,
-            suppliedPort: Int = 0
+            suppliedPort: Option[Int] = None
            ): Subprocess = {
     val workingDirectory: File = getWorkingDirectory(ws)
 
@@ -112,23 +112,27 @@ object Subprocess {
    * @param proc the actual subprocess
    * @return
    */
-  private def choosePort(suppliedPort: Int, proc: Process) = {
-    if (suppliedPort != 0) {
-      suppliedPort
-    } else {
+  private def choosePort(suppliedPort: Option[Int], proc: Process) = {
+    suppliedPort.getOrElse({
       val pbInput = new BufferedReader(new InputStreamReader(proc.getInputStream))
       extractPortFromProc(proc, pbInput)
-    }
+    })
   }
 
   private def extractPortFromProc[A](proc: Process, pbInput: BufferedReader): Int = {
     val portLine = pbInput.readLine
-    try {
+    val portLineInt = try {
       portLine.toInt
     } catch {
       case _: NumberFormatException =>
-        earlyFail(proc, s"Process did not provide expected output. Expected a port number but got:\n$portLine")
+        earlyFail(proc, s"Process did not provide expected output. Expected a valid port number but got:\n$portLine")
     }
+
+    if (portLineInt <= 0 || portLineInt > 65535) {
+      earlyFail(proc, s"Process did not provide expected output. Expected a valid port number but got:\n$portLine")
+    }
+
+    portLineInt
   }
 
   private def getWorkingDirectory(ws: Workspace) = {

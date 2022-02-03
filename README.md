@@ -19,9 +19,9 @@ An extension using this library has three parts:
 
 
 ## Examples: 
-The [CCL official Javascript extension](BROKEN-LINK) is written with this library and should be used as a template. 
+The [CCL official Javascript extension](BROKEN-LINK TODO: FILL IN ONCE THE JS LIBRARY IS PUBLISHED) is written with this library and should be used as a template. 
 
-The [CCL official Python extension](BROKEN-LINK) is also written with this library, but has more surrounding code in order to maintain backwards compatibility. 
+The [CCL official Python extension](BROKEN-LINK TODO: FILL IN ONCE THE PYTHON LIBRARY IS PUBLISHED) is also written with this library, but has more surrounding code in order to maintain backwards compatibility. 
 
 ## How to write the extension code:
 
@@ -78,7 +78,9 @@ Where message is a short error message and cause is a longer, more detailed
 message, perhaps with a stack trace if one is availible.
 
 ### Port numbers
-//TODO: figure out if I want to change the way port numbers work or if I want to keep them as is. either way, they need documentation. 
+During the initialization of the 'Subprocess' object, you have the choice of manually specifying a port on localhost 
+over which the communication should happen or letting the target language server choose one itself. If you do let the 
+target language server choose one, it needs to emit it as the very first line of stdout. 
 
 ## A full cycle:
 1. The user calls an extension primitive. This example will use `my-extension:set "foo" patch 0 0`
