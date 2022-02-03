@@ -14,3 +14,5 @@ libraryDependencies ++= Seq(
   "org.nlogo" % "netlogo" % "6.2.0",
   "org.json4s" %% "json4s-jackson" % "3.5.3",
 )
+
+publishTo := { Some("Cloudsmith API" at "https://maven.cloudsmith.io/netlogo/netlogoextensionlanguageserverlibrary/") }
