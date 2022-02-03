@@ -1,5 +1,5 @@
 organization := "org.nlogo.langextension"
-version := "0.1-SNAPSHOT"
+version := "0.2"
 name := "lang-extension-lib"
 
 isSnapshot := true
