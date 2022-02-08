@@ -14,24 +14,41 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
   // **functional state**
   private var evalStringified: Option[(String) => String] = None
   private var cmdHistory: Seq[String] = Seq()
-  private var cmdHistoryIndex = 0;
-  private var cmdHistoryFirst = true;
+  private var cmdHistoryIndex = 0
+  private var cmdHistoryFirst = true
   private var menuItemCallbacks: Map[String, (ActionEvent) => Unit] = Map()
 
   // **Swing objects**
   private val consolePanel: JSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT)
   val output = new JTextArea()
   val input = new JTextArea()
+
+  val bottomContainer = new JPanel()
+  val runButton = new JButton("Run")
+  val clearCodeAreaButton = new JButton("Clear Code")
+
+  val topContainer = new JPanel()
+  val clearHistoryAreaButton = new JButton("Clear History")
+
   val contextMenu = new JPopupMenu("Edit")
 
   // **Setup**
   initPanels()
+  clearHistoryAreaButton.addActionListener((_: ActionEvent) => {output.setText("")})
+  clearCodeAreaButton.addActionListener((_: ActionEvent) => {input.setText("")})
+  runButton.addActionListener((_: ActionEvent) => {runCode()})
   addRightClickMenuItem("Clear Output Text", (e: ActionEvent) => {
     output.setText("")
   })
   addRightClickMenuItem("Clear Input Text", (e: ActionEvent) => {
     input.setText("")
   })
+
+  output.setText(
+    "Usage:\n\n"
+      + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
+      + "Use page up/down to recall previously submitted commands.\n\n"
+  )
 
   // ---------------------Getters and Setters----------------------------------
 
@@ -56,9 +73,19 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     sp2.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
     consolePanel.setBottomComponent(sp2)
 
+    topContainer.setLayout(new BorderLayout())
+    topContainer.add(clearHistoryAreaButton, BorderLayout.EAST)
+
+    bottomContainer.setLayout(new BorderLayout())
+    bottomContainer.add(clearCodeAreaButton, BorderLayout.WEST)
+    bottomContainer.add(runButton, BorderLayout.EAST)
+
     this.getContentPane.setLayout(new BorderLayout)
     this.getContentPane.add(consolePanel, BorderLayout.CENTER)
-    this.setMinimumSize(new Dimension(555, 650))
+    this.getContentPane.add(bottomContainer, BorderLayout.AFTER_LAST_LINE)
+    this.getContentPane.add(topContainer, BorderLayout.BEFORE_FIRST_LINE)
+
+    this.setMinimumSize(new Dimension(400, 400))
     this.setSize(new Dimension(555, 650))
     output.setEditable(false)
 
@@ -78,11 +105,6 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     input.setTabSize(2)
     output.setTabSize(2)
 
-    output.setText(
-      "Usage:\n\n"
-        + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
-        + "Use page up/down to recall previously submitted commands.\n\n"
-    )
   }
 
   private def addRightClickMenuItem(label: String, callback: (ActionEvent) => Unit): Unit = {
@@ -107,24 +129,7 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
 
   override def keyPressed(ke: KeyEvent): Unit = {
     if (ke.isControlDown && ke.getKeyCode == KeyEvent.VK_ENTER) {
-      val cmd = input.getText.trim
-
-      if (cmdHistory.isEmpty || cmdHistory.last != cmd) { // ignore repeated identical commands
-        cmdHistory :+= cmd
-        cmdHistoryIndex = cmdHistory.size - 1
-      }
-      cmdHistoryFirst = true
-
-      input.setText("")
-      input.setCaretPosition(0)
-      input.requestFocus()
-
-      output.append(">> " + cmd + "\n")
-
-      evalStringified match {
-        case Some(f) => output.append(f(cmd) + "\n")
-        case None => output.append("This extension has not been properly initialized yet.\n")
-      }
+      runCode()
     }
   }
 
@@ -144,10 +149,31 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
             cmdHistoryIndex = 0
           }
         }
-        cmdHistoryFirst = false;
+        cmdHistoryFirst = false
         input.setText(cmdHistory(cmdHistoryIndex))
       }
     }
   }
-}
 
+  private def runCode(): Unit = {
+    val cmd = input.getText.trim
+
+    if (cmdHistory.isEmpty || cmdHistory.last != cmd) { // ignore repeated identical commands
+      cmdHistory :+= cmd
+      cmdHistoryIndex = cmdHistory.size - 1
+    }
+    cmdHistoryFirst = true
+
+    input.setText("")
+    input.setCaretPosition(0)
+    input.requestFocus()
+
+    output.append(">> " + cmd + "\n")
+
+    evalStringified match {
+      case Some(f) => output.append(f(cmd) + "\n")
+      case None => output.append("This extension has not been properly initialized yet.\n")
+    }
+  }
+
+}
