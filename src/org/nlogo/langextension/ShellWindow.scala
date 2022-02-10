@@ -1,5 +1,7 @@
 package org.nlogo.langextension
 
+import org.nlogo.api.ExtensionException
+
 import java.awt.event._
 import java.awt.{BorderLayout, Dimension}
 import javax.swing._
@@ -176,8 +178,12 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
         case None => output.append("This extension has not been properly initialized yet.\n")
       }
     } catch {
-      case e: TargetLanguageErrorException =>
-        output.append(e.asInstanceOf[TargetLanguageErrorException].getLongMessage)
+      case e: ExtensionException => {
+        e.getCause match {
+          case t: TargetLanguageErrorException => output.append(t.getLongMessage)
+          case _ => throw e
+        }
+      }
     }
   }
 

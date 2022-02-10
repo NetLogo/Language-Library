@@ -423,7 +423,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     } else {
       val message = (parsed \ "body" \ "message").asInstanceOf[JString].s
       val longMessage = (parsed \ "body" \ "longMessage").asInstanceOf[JString].s
-      Failure(new TargetLanguageErrorException(message, longMessage))
+      Failure(new ExtensionException(message, new TargetLanguageErrorException(message, longMessage)))
     }
 
     redirectPipes()
