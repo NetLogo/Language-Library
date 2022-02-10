@@ -421,10 +421,9 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
       val body = toLogo(parsed \ "body")
       Success(body)
     } else {
-      val message = compact(render((parsed \ "body" \ "message"))).drop(1).dropRight(1)
-      val cause = compact(render(parsed \ "body" \ "cause")).drop(1).dropRight(1)
-      // Without these drop's, the strings would have quotes inside of them
-      Failure(new ExtensionException(message, new Exception(cause)))
+      val message = (parsed \ "body" \ "message").asInstanceOf[JString].s
+      val longMessage = (parsed \ "body" \ "longMessage").asInstanceOf[JString].s
+      Failure(new TargetLanguageErrorException(message, longMessage))
     }
 
     redirectPipes()

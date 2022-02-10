@@ -170,9 +170,14 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
 
     output.append(">> " + cmd + "\n")
 
-    evalStringified match {
-      case Some(f) => output.append(f(cmd) + "\n")
-      case None => output.append("This extension has not been properly initialized yet.\n")
+    try {
+      evalStringified match {
+        case Some(f) => output.append(f(cmd) + "\n")
+        case None => output.append("This extension has not been properly initialized yet.\n")
+      }
+    } catch {
+      case e: TargetLanguageErrorException =>
+        output.append(e.asInstanceOf[TargetLanguageErrorException].getLongMessage)
     }
   }
 

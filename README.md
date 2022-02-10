@@ -75,7 +75,7 @@ object when the type is Error (1)
 }
 ```
 Where message is a short error message and cause is a longer, more detailed
-message, perhaps with a stack trace if one is availible.
+message, perhaps with a stack trace if one is available.
 
 ### Port numbers
 During the initialization of the 'Subprocess' object, you have the choice of manually specifying a port on localhost 
