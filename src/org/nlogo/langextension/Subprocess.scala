@@ -413,6 +413,9 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     send
 
     val line = inReader.readLine()
+    if (line == null) {
+      return Failure(new ExtensionException("Unable to read child process output. Try running the command again"))
+    }
     val parsed = parse(line)
 
     val msg_type = toLogo(parsed \ "type")
