@@ -7,6 +7,7 @@ isSnapshot := true
 scalaVersion := "2.12.12"
 
 Compile / scalaSource := baseDirectory.value / "src"
+scalacOptions        ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-Xlint")
 
 resolvers += "netlogo" at "https://dl.cloudsmith.io/public/netlogo/netlogo/maven/"
 

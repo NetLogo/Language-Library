@@ -1,30 +1,29 @@
 package org.nlogo.langextension
 
-import org.json4s
 import org.json4s.JValue
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 import org.nlogo.api.Exceptions.ignoring
-import org.nlogo.api.{ExtensionException, OutputDestination, Workspace}
-import org.nlogo.core.{Dump, LogoList, Nobody, Syntax}
+import org.nlogo.api.{ ExtensionException, OutputDestination, Workspace }
+import org.nlogo.core.{ Dump, LogoList, Nobody, Syntax }
 import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
 import org.nlogo.agent
-import org.nlogo.agent.{Agent, AgentSet}
+import org.nlogo.agent.{ Agent, AgentSet }
 
 import java.awt.GraphicsEnvironment
 import java.io._
 import java.lang.ProcessBuilder.Redirect
-import java.lang.{Boolean => JavaBoolean, Double => JavaDouble}
+import java.lang.{ Boolean => JavaBoolean, Double => JavaDouble }
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.{ ExecutorService, Executors, TimeUnit }
 import javax.swing.SwingUtilities
 import scala.collection.JavaConverters._
 import scala.concurrent.SyncVar
-import scala.concurrent.duration.{Duration, DurationInt}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.duration.{ Duration, DurationInt }
+import scala.util.{ Failure, Success, Try }
 
 
 /**
@@ -33,15 +32,20 @@ import scala.util.{Failure, Success, Try}
  */
 object Subprocess {
   //-------------------------Constants----------------------------------------
-  // Out types
-  val stmtMsg = 0
-  val exprMsg = 1
-  val assnMsg = 2
-  val exprStringifiedMsg = 3
+  object OutTypes {
+    val quitMsg = -1
+    val stmtMsg = 0
+    val exprMsg = 1
+    val assnMsg = 2
+    val exprStringifiedMsg = 3
+    val heartbeatRequestMsg = 4
+  }
 
-  // In types
-  val successMsg = 0
-  val errorMsg = 1
+  object InTypes {
+    val successMsg = 0
+    val errorMsg = 1
+    val hearbeatResponseMsg = 4
+  }
 
   // All of the things that can be converted into Json to be passed to the target language code
   val convertibleTypesSyntax: Int = Syntax.AgentType | Syntax.AgentsetType | Syntax.ReadableType
@@ -306,6 +310,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * Shut down the subprocess.
    */
   def close(): Unit = {
+    quit()
     shuttingDown.set(true)
     executor.shutdownNow()
     ignoring(classOf[IOException])(inReader.close())
@@ -318,6 +323,15 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   }
 
   //---------------------------Private Utilities-------------------------------
+  private def quit(): Unit = {
+    HandleFailures {
+      Haltable {
+        heartbeat().map(_ => async {
+          receive(sendQuit())
+        })
+      }
+    }.get.get
+  }
 
   private def ensureValidNum(d: Double): Double = d match {
     case x if x.isInfinite => throw new ExtensionException(extensionLongName + " reported a number too large for NetLogo.")
@@ -418,15 +432,28 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }
     val parsed = parse(line)
 
-    val msg_type = toLogo(parsed \ "type")
+    val msg_type = (parsed \ "type") match {
+      case JInt(num) => num.toInt
 
-    val result = if (msg_type == 0) {
-      val body = toLogo(parsed \ "body")
-      Success(body)
-    } else {
-      val message = (parsed \ "body" \ "message").asInstanceOf[JString].s
-      val longMessage = (parsed \ "body" \ "longMessage").asInstanceOf[JString].s
-      Failure(new ExtensionException(message, new TargetLanguageErrorException(message, longMessage)))
+      case _ =>
+        return Failure(new ExtensionException(s"Unknown message type received from the external langauge: ${parsed \ "type"}"))
+    }
+
+    val result = msg_type match {
+      case Subprocess.InTypes.hearbeatResponseMsg =>
+        Success("beat")
+
+      case Subprocess.InTypes.successMsg =>
+        val body = toLogo(parsed \ "body")
+        Success(body)
+
+      case Subprocess.InTypes.errorMsg =>
+        val message = (parsed \ "body" \ "message").asInstanceOf[JString].s
+        val longMessage = (parsed \ "body" \ "longMessage").asInstanceOf[JString].s
+        Failure(new ExtensionException(message, new TargetLanguageErrorException(message, longMessage)))
+
+      case _ =>
+        Failure(new ExtensionException(s"Unknown message type received from the external langauge: $msg_type"))
     }
 
     redirectPipes()
@@ -436,16 +463,16 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   private def heartbeat(timeout: Duration = 1.seconds): Try[Any] = {
     if (!isRunningLegitJob.get) {
       val hb = async {
-        receive {
-          sendStmt("")
-        }
+        receive(sendHeartbeat())
       }
       hb.get(timeout.toMillis).getOrElse(
         Failure(new ExtensionException(
           s"${extensionLongName} is not responding. You can wait to see if it finishes what it's doing or restart it using ${extensionName}:setup"
         ))
       )
-    } else Success(())
+    } else {
+      Success("beat")
+    }
   }
 
   // --------------------Actual Message Formulation----------------------------
@@ -456,28 +483,38 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   }
 
   private def sendStmt(stmt: String): Unit = {
-    val msg = ("type" -> Subprocess.stmtMsg) ~ ("body" -> stmt)
+    val msg = ("type" -> Subprocess.OutTypes.stmtMsg) ~ ("body" -> stmt)
     sendMessage(msg)
   }
 
   private def sendExpr(expr: String): Unit = {
-    val msg = ("type" -> Subprocess.exprMsg) ~ ("body" -> expr)
+    val msg = ("type" -> Subprocess.OutTypes.exprMsg) ~ ("body" -> expr)
     sendMessage(msg)
   }
 
   private def sendExprStringified(expr: String): Unit = {
-    val msg = ("type" -> Subprocess.exprStringifiedMsg) ~ ("body" -> expr)
+    val msg = ("type" -> Subprocess.OutTypes.exprStringifiedMsg) ~ ("body" -> expr)
     sendMessage(msg)
   }
 
   private def sendAssn(varName: String, value: AnyRef): Unit = {
     val name_value_pair = ("varName" -> varName) ~ ("value" -> toJson(value))
-    val msg = ("type" -> Subprocess.assnMsg) ~ ("body" -> name_value_pair)
+    val msg = ("type" -> Subprocess.OutTypes.assnMsg) ~ ("body" -> name_value_pair)
+    sendMessage(msg)
+  }
+
+  private def sendQuit(): Unit = {
+    val msg = ("type" -> Subprocess.OutTypes.quitMsg)
     sendMessage(msg)
   }
 
   private def sendGeneric(i: Int, value: AnyRef): Unit = {
     val msg = ("type" -> i) ~ ("body" -> toJson(value))
+    sendMessage(msg)
+  }
+
+  private def sendHeartbeat(): Unit = {
+    val msg = ("type" -> Subprocess.OutTypes.heartbeatRequestMsg)
     sendMessage(msg)
   }
 
