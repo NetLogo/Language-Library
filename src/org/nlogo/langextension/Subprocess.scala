@@ -94,7 +94,7 @@ object Subprocess {
    * @return the PATH
    */
   def path: Seq[File] = {
-    val basePath = System.getenv("PATH")
+    val basePath = sys.env.getOrElse("PATH", "")
     val os = System.getProperty("os.name").toLowerCase
 
     val unsplitPath = if (os.contains("mac") && basePath == "/usr/bin:/bin:/usr/sbin:/sbin")
