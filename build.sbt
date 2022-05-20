@@ -1,6 +1,6 @@
 name         := "lang-extension-lib"
 organization := "org.nlogo.langextension"
-version      := "0.4.0"
+version      := "0.4.1"
 isSnapshot   := true
 
 scalaVersion          := "2.12.12"
