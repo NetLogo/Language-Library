@@ -14,14 +14,16 @@
 
 An extension using this library has three parts:
 1. The extension itself, which registers primitives that call into this library
-2. The library which forwards target language commands and encoded NetLogo data structures to the target language server  
-3. A tcp server on localhost written in the target language which listens for messages from the library and `eval`'s them and gives results back to the library.    
+2. The library which forwards target language commands and encoded NetLogo data structures to the target language server
+3. A tcp server on localhost written in the target language which listens for messages from the library and `eval`'s them and gives results back to the library.
 
 
-## Examples: 
-The [CCL official Javascript extension](BROKEN-LINK TODO: FILL IN ONCE THE JS LIBRARY IS PUBLISHED) is written with this library and should be used as a template. 
+## Examples:
+The [CCL official NodeJS JavaScript extension](https://github.com/NetLogo/NodeJS-Extension) is written with this library and should be used as a template.
 
-The [CCL official Python extension](BROKEN-LINK TODO: FILL IN ONCE THE PYTHON LIBRARY IS PUBLISHED) is also written with this library, but has more surrounding code in order to maintain backwards compatibility. 
+The [CCL official Python extension](https://github.com/NetLogo/Python-Extension) is also written with this library, but has more surrounding code in order to maintain backwards compatibility.
+
+The [CCL SimpleR extension](https://github.com/NetLogo/SimpleR-Extension) for interoperating with the R language and platform is also written with this library.  It serves as a good example as to how this library can simplify the creation of these sorts of extensions when compared to the [old R extension](https://NetLogo/R-Extension).
 
 ## How to write the extension code:
 
@@ -78,14 +80,14 @@ Where message is a short error message and cause is a longer, more detailed
 message, perhaps with a stack trace if one is available.
 
 ### Port numbers
-During the initialization of the 'Subprocess' object, you have the choice of manually specifying a port on localhost 
-over which the communication should happen or letting the target language server choose one itself. If you do let the 
-target language server choose one, it needs to emit it as the very first line of stdout. 
+During the initialization of the 'Subprocess' object, you have the choice of manually specifying a port on localhost
+over which the communication should happen or letting the target language server choose one itself. If you do let the
+target language server choose one, it needs to emit it as the very first line of stdout.
 
 ## A full cycle:
 1. The user calls an extension primitive. This example will use `my-extension:set "foo" patch 0 0`
 2. The extension code forwards that to the library's corresponding method, in this case `mySubprocess.assign(varName: String, value: AnyRef)` method
-3. If needed, the library code serializes the NetLogo value into a JSON representation. For numbers, strings, and lists, this is trivial. Agents (turtles, links, patches) are converted into JSON objects with key-value pairs for each of their owned variables.  Agentsets are converted into lists of JSON-encoded agents. 
+3. If needed, the library code serializes the NetLogo value into a JSON representation. For numbers, strings, and lists, this is trivial. Agents (turtles, links, patches) are converted into JSON objects with key-value pairs for each of their owned variables.  Agentsets are converted into lists of JSON-encoded agents.
 4. The library wraps the command into the following json-encoded message and sends it to the TCP server running in the target language's interpreter
 ```
 {
@@ -102,13 +104,13 @@ target language server choose one, it needs to emit it as the very first line of
     }
 }
 ```
-5. The target language TCP server receives the message and performs the requested operation, in this case setting the variable "foo" to the json-serialized representation of the patch. 
-6. The target language TCP server sends the following message back to the library's code to signify the assignment was processed successfully. 
+5. The target language TCP server receives the message and performs the requested operation, in this case setting the variable "foo" to the json-serialized representation of the patch.
+6. The target language TCP server sends the following message back to the library's code to signify the assignment was processed successfully.
 ```
 {
     "type": 0,
     "body": ""
 }
 ```
-7. The library finishes up. In the case of eval, it converts the JSON-encoded `body` field back into a NetLogo data type. This is done trivially for numbers and strings. JSON objects are converted into a list of key-value two-item lists.  
-8. Control returns to the extension code. 
+7. The library finishes up. In the case of eval, it converts the JSON-encoded `body` field back into a NetLogo data type. This is done trivially for numbers and strings. JSON objects are converted into a list of key-value two-item lists.
+8. Control returns to the extension code.
