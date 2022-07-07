@@ -1,4 +1,4 @@
-package org.nlogo.langextension
+package org.nlogo.languagelibrary
 
 import org.nlogo.api.ExtensionException
 

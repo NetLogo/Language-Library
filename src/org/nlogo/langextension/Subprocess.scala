@@ -1,4 +1,4 @@
-package org.nlogo.langextension
+package org.nlogo.languagelibrary
 
 import org.json4s.JValue
 import org.json4s.JsonAST._

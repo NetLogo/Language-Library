@@ -1,6 +1,6 @@
-name         := "lang-extension-lib"
-organization := "org.nlogo.langextension"
-version      := "0.4.1"
+name         := "language-library"
+organization := "org.nlogo.languagelibrary"
+version      := "1.0.0"
 isSnapshot   := true
 
 scalaVersion          := "2.12.12"
@@ -17,4 +17,4 @@ libraryDependencies ++= Seq(
 , "org.jogamp.gluegen" %  "gluegen-rt"    % "2.4.0" from "https://jogamp.org/deployment/archive/rc/v2.4.0-rc-20210111/jar/gluegen-rt.jar"
 )
 
-publishTo := { Some("Cloudsmith API" at "https://maven.cloudsmith.io/netlogo/netlogoextensionlanguageserverlibrary/") }
+publishTo := { Some("Cloudsmith API" at "https://maven.cloudsmith.io/netlogo/language-library/") }
