@@ -23,7 +23,7 @@ The [CCL official NodeJS JavaScript extension](https://github.com/NetLogo/NodeJS
 
 The [CCL official Python extension](https://github.com/NetLogo/Python-Extension) is also written with this library, but has more surrounding code in order to maintain backwards compatibility.
 
-The [CCL SimpleR extension](https://github.com/NetLogo/SimpleR-Extension) for interoperating with the R language and platform is also written with this library.  It serves as a good example as to how this library can simplify the creation of these sorts of extensions when compared to the [old R extension](https://NetLogo/R-Extension).
+The [CCL SimpleR extension](https://github.com/NetLogo/SimpleR-Extension) for interoperating with the R language and platform is also written with this library.  It serves as a good example as to how this library can simplify the creation of these sorts of extensions when compared to the [old R extension](https://github.com/NetLogo/R-Extension).
 
 ## How to write the extension code:
 
