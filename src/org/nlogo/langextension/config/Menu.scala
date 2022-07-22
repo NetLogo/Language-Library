@@ -2,14 +2,21 @@ package org.nlogo.languagelibrary.config
 
 import javax.swing.JMenu
 
+import org.nlogo.api.ExtensionManager
 import org.nlogo.app.App
-
+import org.nlogo.workspace.{ AbstractWorkspace, ExtensionManager => WorkspaceExtensionManager }
 import org.nlogo.languagelibrary.ShellWindow
 
 object Menu {
 
-  def create(longName: String, extLangBin: String, config: Config, extraProperties: Seq[ConfigProperty] = Seq()): Option[Menu] = {
-    if (Platform.isHeadless) {
+  def create(em: ExtensionManager, longName: String, extLangBin: String, config: Config, extraProperties: Seq[ConfigProperty] = Seq()): Option[Menu] = {
+    // My gut tells me this information should be way easier for an extension to find, but
+    // at the moment I don't feel like digging into the NetLogo side to figure out the
+    // right place.  So we'll do this.  -Jeremy B July 2022
+    val isHeadlessWorkspace = em.isInstanceOf[WorkspaceExtensionManager] &&
+      em.asInstanceOf[WorkspaceExtensionManager].workspace.isInstanceOf[AbstractWorkspace] &&
+      em.asInstanceOf[WorkspaceExtensionManager].workspace.asInstanceOf[AbstractWorkspace].isHeadless
+    if (isHeadlessWorkspace || Platform.isHeadless) {
       None
     } else {
       val menuBar   = App.app.frame.getJMenuBar
@@ -33,16 +40,12 @@ object Menu {
 
 class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: String, config: Config, extraProperties: Seq[ConfigProperty]) extends JMenu(longName) {
   def setup(evalStringified: (String) => String) = {
-    if (!Platform.isHeadless) {
-      shellWindow.setEvalStringified(Some(evalStringified))
-    }
+    shellWindow.setEvalStringified(Some(evalStringified))
   }
 
   def unload() = {
-    if (!Platform.isHeadless) {
-      shellWindow.setVisible(false)
-      App.app.frame.getJMenuBar.remove(this)
-    }
+    shellWindow.setVisible(false)
+    App.app.frame.getJMenuBar.remove(this)
   }
 
   add("Configure").addActionListener { _ =>

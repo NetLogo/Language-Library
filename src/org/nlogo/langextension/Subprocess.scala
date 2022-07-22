@@ -11,8 +11,9 @@ import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
 import org.nlogo.agent
 import org.nlogo.agent.{ Agent, AgentSet }
+import org.nlogo.languagelibrary.config.Platform
 
-import java.awt.GraphicsEnvironment
+
 import java.io._
 import java.lang.ProcessBuilder.Redirect
 import java.lang.{ Boolean => JavaBoolean, Double => JavaDouble }
@@ -344,7 +345,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @param s
    */
   private def output(s: String): Unit = {
-    if (GraphicsEnvironment.isHeadless || System.getProperty("org.nlogo.preferHeadless") == "true")
+    if (ws.isHeadless || Platform.isHeadless)
       println(s)
     else
       SwingUtilities.invokeLater { () =>
