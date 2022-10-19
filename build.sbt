@@ -10,7 +10,7 @@ Compile / scalaSource := baseDirectory.value / "src"
 resolvers += "netlogo" at "https://dl.cloudsmith.io/public/netlogo/netlogo/maven/"
 
 libraryDependencies ++= Seq(
-  "org.nlogo"          % "netlogo"        % "6.2.2"
+  "org.nlogo"          % "netlogo"        % "6.3.0"
 , "org.json4s"        %% "json4s-jackson" % "3.5.3"
 // not used by this library, but needed for NetLogo
 , "org.jogamp.jogl"    %  "jogl-all"      % "2.4.0" from "https://jogamp.org/deployment/archive/rc/v2.4.0-rc-20210111/jar/jogl-all.jar"

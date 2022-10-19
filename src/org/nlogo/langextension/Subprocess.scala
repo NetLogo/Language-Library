@@ -3,20 +3,17 @@ package org.nlogo.languagelibrary
 import org.json4s.JValue
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
-import org.json4s.jackson.JsonMethods.{compact, parse, render}
+import org.json4s.jackson.JsonMethods.{ compact, parse, render }
+
 import org.nlogo.api.Exceptions.ignoring
 import org.nlogo.api.{ ExtensionException, OutputDestination, Workspace }
-import org.nlogo.core.{ Dump, LogoList, Nobody, Syntax }
+import org.nlogo.core.Syntax
 import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
-import org.nlogo.agent
-import org.nlogo.agent.{ Agent, AgentSet }
 import org.nlogo.languagelibrary.config.Platform
-
 
 import java.io._
 import java.lang.ProcessBuilder.Redirect
-import java.lang.{ Boolean => JavaBoolean, Double => JavaDouble }
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{ ExecutorService, Executors, TimeUnit }
@@ -25,7 +22,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.SyncVar
 import scala.concurrent.duration.{ Duration, DurationInt }
 import scala.util.{ Failure, Success, Try }
-
 
 /**
  * A Subprocess manages the system subprocess running the target language code and the network socket that carries
@@ -201,6 +197,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   //---------------------------Class Variables--------------------------------
   private val shuttingDown = new AtomicBoolean(false)
   private val isRunningLegitJob = new AtomicBoolean(false)
+  val convert = new Convert(extensionLongName)
 
   val inReader = new BufferedReader(new InputStreamReader(socket.getInputStream))
 
@@ -245,7 +242,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   }
 
   /**
-   * Send an "evalStringigied" command to the subproccess with the given expression. Used to create a pop-out
+   * Send an "evalStringified" command to the subproccess with the given expression. Used to create a pop-out
    * interpreter
    *
    * @param expr the expression to evaluate
@@ -332,12 +329,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
         })
       }
     }.get.get
-  }
-
-  private def ensureValidNum(d: Double): Double = d match {
-    case x if x.isInfinite => throw new ExtensionException(extensionLongName + " reported a number too large for NetLogo.")
-    case x if x.isNaN => throw new ExtensionException(extensionLongName + " reported a non-numeric value from a mathematical operation.")
-    case x => x
   }
 
   /**
@@ -445,7 +436,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
         Success("beat")
 
       case Subprocess.InTypes.successMsg =>
-        val body = toLogo(parsed \ "body")
+        val body = convert.toNetLogo(parsed \ "body")
         Success(body)
 
       case Subprocess.InTypes.errorMsg =>
@@ -499,7 +490,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   }
 
   private def sendAssn(varName: String, value: AnyRef): Unit = {
-    val name_value_pair = ("varName" -> varName) ~ ("value" -> toJson(value))
+    val name_value_pair = ("varName" -> varName) ~ ("value" -> convert.toJson(value))
     val msg = ("type" -> Subprocess.OutTypes.assnMsg) ~ ("body" -> name_value_pair)
     sendMessage(msg)
   }
@@ -510,53 +501,13 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   }
 
   private def sendGeneric(i: Int, value: AnyRef): Unit = {
-    val msg = ("type" -> i) ~ ("body" -> toJson(value))
+    val msg = ("type" -> i) ~ ("body" -> convert.toJson(value))
     sendMessage(msg)
   }
 
   private def sendHeartbeat(): Unit = {
     val msg = ("type" -> Subprocess.OutTypes.heartbeatRequestMsg)
     sendMessage(msg)
-  }
-
-  //------------------------Conversion Utilities-------------------------------
-  private def toJson(x: AnyRef): JValue = x match {
-    case j: JValue => j
-    case s: String => JString(s)
-    case l: LogoList => l.map(toJson)
-    case b: java.lang.Boolean => if (b) JBool.True else JBool.False
-    case Nobody => JNothing
-    case agent: agent.Agent => agentToJson(agent)
-    case set: agent.AgentSet => set.toLogoList.map(agent => agentToJson(agent.asInstanceOf[Agent]))
-    case o => parse(Dump.logoObject(o, readable = true, exporting = false))
-  }
-
-  private def agentToJson(agent: Agent) : JValue = {
-    var obj : JObject = org.json4s.JObject()
-    agent.variables.indices.foreach(i => {
-      val name = agent.variableName(i)
-      val value = agent.getVariable(i) match {
-        case set : AgentSet => toJson(set.printName) // <plural agentset name>
-        case agent : Agent => toJson(agent.toString) // <singular agentset name> <id>
-        case other : AnyRef => toJson(other)
-      }
-      obj = obj ~ (name -> value)
-    })
-    obj
-  }
-
-  private def toLogo(x: JValue): AnyRef = x match {
-    case JNothing => Nobody
-    case JNull => Nobody
-    case JString(s) => s
-    case JDouble(num) => ensureValidNum(num): JavaDouble
-    case JDecimal(num) => ensureValidNum(num.toDouble): JavaDouble
-    case JLong(num) => ensureValidNum(num.toDouble): JavaDouble
-    case JInt(num) => ensureValidNum(num.toDouble): JavaDouble
-    case JBool(value) => value: JavaBoolean
-    case JObject(obj) => LogoList.fromVector(obj.map(f => LogoList(f._1, toLogo(f._2))).toVector)
-    case JArray(arr) => LogoList.fromVector(arr.map(toLogo).toVector)
-    case JSet(set) => LogoList.fromVector(set.map(toLogo).toVector)
   }
 
 }
