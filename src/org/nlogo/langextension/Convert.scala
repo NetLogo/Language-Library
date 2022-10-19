@@ -18,21 +18,26 @@ class Convert(val extensionLongName: String) {
     case l: LogoList => l.map(toJson)
     case b: JavaBoolean => if (b) JBool.True else JBool.False
     case Nobody => JNothing
-    case agent: Agent => agentToJson(agent)
-    case set: AgentSet => set.toLogoList.map(agent => agentToJson(agent.asInstanceOf[Agent]))
+    case agent: Agent => agentToJson(agent, Set())
+    case set: AgentSet => set.toLogoList.map(agent => agentToJson(agent.asInstanceOf[Agent], Set()))
     case o => parse(Dump.logoObject(o, readable = true, exporting = false))
   }
 
-  private def agentToJson(agent: Agent) : JValue = {
-    var obj : JObject = org.json4s.JObject()
-    agent.variables.indices.foreach(i => {
+  // I exposed this to the public API for a feature for SimplerR, but I wound up not using it.  I'm going to leave it
+  // open just in case, though.  -Jeremy October 2022
+  def agentToJson(agent: Agent, variableNamesFilter: Set[String]) : JValue = {
+    val filter = variableNamesFilter.map( (vn) => vn.toLowerCase )
+    var obj: JObject = org.json4s.JObject()
+    agent.variables.indices.foreach( (i) => {
       val name = agent.variableName(i)
-      val value = agent.getVariable(i) match {
-        case set : AgentSet => toJson(set.printName) // <plural agentset name>
-        case agent : Agent => toJson(agent.toString) // <singular agentset name> <id>
-        case other : AnyRef => toJson(other)
+      if (filter.isEmpty || filter.contains(name.toLowerCase)) {
+        val value = agent.getVariable(i) match {
+          case set: AgentSet => toJson(set.printName) // <plural agentset name>
+          case agent: Agent  => toJson(agent.toString) // <singular agentset name> <id>
+          case other: AnyRef => toJson(other)
+        }
+        obj = obj ~ (name -> value)
       }
-      obj = obj ~ (name -> value)
     })
     obj
   }
