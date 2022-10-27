@@ -48,6 +48,10 @@ class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: S
     App.app.frame.getJMenuBar.remove(this)
   }
 
+  def showShellWindow() = {
+    shellWindow.setVisible(true)
+  }
+
   add("Configure").addActionListener { _ =>
     new ConfigEditor(App.app.frame, longName, extLangBin, config, extraProperties).setVisible(true)
   }
