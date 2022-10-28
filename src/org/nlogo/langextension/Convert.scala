@@ -12,6 +12,7 @@ import org.nlogo.api.ExtensionException
 import org.nlogo.core.{ Dump, LogoList, Nobody }
 
 class Convert(val extensionLongName: String) {
+
   def toJson(x: AnyRef): JValue = x match {
     case j: JValue => j
     case s: String => JString(s)
@@ -20,6 +21,9 @@ class Convert(val extensionLongName: String) {
     case Nobody => JNothing
     case agent: Agent => agentToJson(agent, Set())
     case set: AgentSet => set.toLogoList.map(agent => agentToJson(agent.asInstanceOf[Agent], Set()))
+    // I danced and romped but couldn't find a way to get Scala to accept a match like `iter: Iterable[_ <: AnyRef]`
+    // without some cryptic error.  -Jeremy B Octover 2022
+    case iter if iter.isInstanceOf[Iterable[_]] => iter.asInstanceOf[Iterable[AnyRef]].map(toJson)
     case o => parse(Dump.logoObject(o, readable = true, exporting = false))
   }
 
