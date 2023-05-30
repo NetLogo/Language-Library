@@ -44,17 +44,36 @@ object Config {
   }
 
   def getRuntimePath(extLangBin: String, maybeConfigPath: String, checkFlags: String*): Option[String] = {
-    val configRuntimePath = Paths.get(maybeConfigPath.trim(), extLangBin).toString
-    if (configRuntimePath != extLangBin && checkRuntimePath(configRuntimePath, checkFlags)) {
-      Some(configRuntimePath)
-    } else {
-      // fallback to hoping it's on the PATH...
+    val checkPath = maybeConfigPath.trim()
+    def fallback() =
       if (checkRuntimePath(extLangBin, checkFlags)) {
         Some(extLangBin)
       } else {
         None
       }
+
+    // if checkPath is empty, just use the extLangBin...
+    if (checkPath != "" && checkPath != extLangBin) {
+      // if it's not empty, test if it's a dir or not
+      val checkFile = new File(checkPath)
+      if (checkFile.isDirectory) {
+        // directory, append the bin
+        val configRuntimePath = Paths.get(checkPath, extLangBin).toString
+        if (checkRuntimePath(configRuntimePath, checkFlags)) {
+          return Some(configRuntimePath)
+        }
+        System.err.println(s"The path for $extLangBin is configured ($checkPath), but it is a directory and no runnable file is found there.  Falling back to the system path.")
+
+      } else {
+        // not a directory, just try it out
+        if (checkRuntimePath(checkPath, checkFlags)) {
+          return Some(checkPath)
+        }
+        System.err.println(s"The path for $extLangBin is configured ($checkPath), but it is a file that is not runnable.  Falling back to the system path.")
+      }
     }
+
+    fallback()
   }
 
 }

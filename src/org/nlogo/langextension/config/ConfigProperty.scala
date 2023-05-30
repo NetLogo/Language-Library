@@ -2,6 +2,7 @@ package org.nlogo.languagelibrary.config
 
 import java.awt.{ FileDialog, GridBagConstraints => GBC }
 import java.io.File
+import java.nio.file.Paths
 import javax.swing.{ JDialog, JLabel, JPanel, JTextField }
 
 import org.nlogo.swing.RichJButton
@@ -36,7 +37,13 @@ class FileProperty(val key: String, val fileName: String, initialValue: String, 
     dialog.setDirectory(new File(current).getParent)
     dialog.setFile(new File(current).getName)
     dialog.setVisible(true)
-    Option(dialog.getDirectory)
+    val file = dialog.getFile
+    if (file != null) {
+      val path = Paths.get(dialog.getDirectory, file).toString
+      Some(path)
+    } else {
+      None
+    }
   }
 
 }
