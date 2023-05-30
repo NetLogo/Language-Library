@@ -7,7 +7,7 @@ import org.nlogo.core.I18N
 import org.nlogo.swing.{ ButtonPanel, RichAction, RichJButton, Utils }
 
 class ConfigEditor(owner: JFrame, longName: String, extLangBin: String, config: Config, extraProperties: Seq[ConfigProperty]) extends JDialog(owner, longName) {
-  private val runtimeMessage = s"Enter the path to your $extLangBin executable. If blank, the $longName will attempt to find an appropriate version of $extLangBin to run on the system's PATH."
+  private val runtimeMessage = s"Enter the path to your $extLangBin executable. If blank, then $longName will look for an appropriate version of $extLangBin to run on the system's PATH."
   private val properties = Seq(new FileProperty("runtimePath", extLangBin, config.runtimePath.getOrElse(""), runtimeMessage)) ++ extraProperties
 
   {
