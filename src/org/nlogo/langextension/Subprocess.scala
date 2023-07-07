@@ -204,7 +204,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   private val isRunningLegitJob = new AtomicBoolean(false)
   val convert = new Convert(extensionLongName)
 
-  val inReader = new BufferedReader(new InputStreamReader(socket.getInputStream))
+  val inReader = new LineReader(new InputStreamReader(socket.getInputStream))
 
   val out = new BufferedOutputStream(socket.getOutputStream)
 
@@ -434,7 +434,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
 
     send
 
-    Subprocess.logger.logMany("Subprocess.receive()") { Seq("inReader.ready", inReader.ready.toString) }
+    // Subprocess.logger.logMany("Subprocess.receive()") { Seq("inReader.ready", inReader.ready.toString) }
     val line = inReader.readLine()
     if (line == null) {
       return Failure(new ExtensionException("Unable to read child process output. Try running the command again"))
