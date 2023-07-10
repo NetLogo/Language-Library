@@ -486,9 +486,14 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
 
   // --------------------Actual Message Formulation----------------------------
   private def sendMessage(msg: JObject): Unit = {
+    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("msg", msg.toString) }
     out.write(compact(render(msg)).getBytes("UTF-8"))
+    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("message written") }
+    out.write('\r')
     out.write('\n')
+    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("line breaks written") }
     out.flush()
+    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("flushed") }
   }
 
   private def sendStmt(stmt: String): Unit = {
