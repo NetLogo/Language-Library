@@ -44,8 +44,6 @@ object Subprocess {
     val hearbeatResponseMsg = 4
   }
 
-  val logger = new Logger()
-
   // All of the things that can be converted into Json to be passed to the target language code
   val convertibleTypesSyntax: Int = Syntax.AgentType | Syntax.AgentsetType | Syntax.ReadableType
 
@@ -71,7 +69,7 @@ object Subprocess {
             suppliedPort: Option[Int] = None
            ): Subprocess = {
 
-    Subprocess.logger.logOne("Subprocess.start()")
+    Logger.current.logOne("Subprocess.start()")
 
     val workingDirectory: File = getWorkingDirectory(ws)
 
@@ -221,7 +219,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @return The message passed back, converted to a NetLogo object
    */
   def exec(stmt: String): AnyRef = {
-    Subprocess.logger.logMany("Subprocess.exec()") { Seq("stmt", stmt) }
+    Logger.current.logMany("Subprocess.exec()") { Seq("stmt", stmt) }
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -238,7 +236,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @return The message passed back, converted to a NetLogo object
    */
   def eval(expr: String): AnyRef = {
-    Subprocess.logger.logMany("Subprocess.eval()") { Seq("expr", expr) }
+    Logger.current.logMany("Subprocess.eval()") { Seq("expr", expr) }
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -256,7 +254,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @return The stringified result
    */
   def evalStringified(expr: String): String = {
-    Subprocess.logger.logMany("Subprocess.evalStringified()") { Seq("expr", expr) }
+    Logger.current.logMany("Subprocess.evalStringified()") { Seq("expr", expr) }
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -275,7 +273,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @return
    */
   def assign(varName: String, value: AnyRef): Unit = {
-    Subprocess.logger.logMany("Subprocess.assign()") { Seq("varName", varName, ", value", value.toString) }
+    Logger.current.logMany("Subprocess.assign()") { Seq("varName", varName, ", value", value.toString) }
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -293,7 +291,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @return the value sent back from the subprocess
    */
   def genericJson(msg_type: Int, value: JValue): AnyRef = {
-    Subprocess.logger.logMany("Subprocess.genericJson()") { Seq("msg_type", msg_type.toString, ", value", value.toString) }
+    Logger.current.logMany("Subprocess.genericJson()") { Seq("msg_type", msg_type.toString, ", value", value.toString) }
     generic(msg_type, value)
   }
 
@@ -305,7 +303,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @return The value sent back from the subprocess
    */
   def generic(msg_type: Int, value: AnyRef): AnyRef = {
-    Subprocess.logger.logMany("Subprocess.generic()") { Seq("msg_type", msg_type.toString, ", value", value.toString) }
+    Logger.current.logMany("Subprocess.generic()") { Seq("msg_type", msg_type.toString, ", value", value.toString) }
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -319,7 +317,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * Shut down the subprocess.
    */
   def close(): Unit = {
-    Subprocess.logger.logOne("Subprocess.close()")
+    Logger.current.logOne("Subprocess.close()")
     quit()
     shuttingDown.set(true)
     executor.shutdownNow()
@@ -334,7 +332,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
 
   //---------------------------Private Utilities-------------------------------
   private def quit(): Unit = {
-    Subprocess.logger.logOne("Subprocess.quit()")
+    Logger.current.logOne("Subprocess.quit()")
     HandleFailures {
       Haltable {
         heartbeat().map(_ => async {
@@ -349,7 +347,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
    * @param s
    */
   private def output(s: String): Unit = {
-    Subprocess.logger.logMany("Subprocess.output()") { Seq("s", s) }
+    Logger.current.logMany("Subprocess.output()") { Seq("s", s) }
     if (ws.isHeadless || Platform.isHeadless)
       println(s)
     else
@@ -430,11 +428,11 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
   }
 
   private def receive(send: => Unit): Try[AnyRef] = {
-    Subprocess.logger.logOne("Subprocess.receive()")
+    Logger.current.logOne("Subprocess.receive()")
 
     send
 
-    // Subprocess.logger.logMany("Subprocess.receive()") { Seq("inReader.ready", inReader.ready.toString) }
+    // Logger.current.logMany("Subprocess.receive()") { Seq("inReader.ready", inReader.ready.toString) }
     val line = inReader.readLine()
     if (line == null) {
       return Failure(new ExtensionException("Unable to read child process output. Try running the command again"))
@@ -486,14 +484,14 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
 
   // --------------------Actual Message Formulation----------------------------
   private def sendMessage(msg: JObject): Unit = {
-    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("msg", msg.toString) }
+    Logger.current.logMany("Subprocess.sendMessage()") { Seq("msg", msg.toString) }
     out.write(compact(render(msg)).getBytes("UTF-8"))
-    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("message written") }
+    Logger.current.logMany("Subprocess.sendMessage()") { Seq("message written") }
     out.write('\r')
     out.write('\n')
-    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("line breaks written") }
+    Logger.current.logMany("Subprocess.sendMessage()") { Seq("line breaks written") }
     out.flush()
-    Subprocess.logger.logMany("Subprocess.sendMessage()") { Seq("flushed") }
+    Logger.current.logMany("Subprocess.sendMessage()") { Seq("flushed") }
   }
 
   private def sendStmt(stmt: String): Unit = {

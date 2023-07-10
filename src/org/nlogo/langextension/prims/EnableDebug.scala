@@ -3,7 +3,7 @@ package org.nlogo.languagelibrary.prims
 import org.nlogo.api.{ Argument, Command, Context }
 import org.nlogo.core.Syntax
 
-import org.nlogo.languagelibrary.Subprocess
+import org.nlogo.languagelibrary.Logger
 
 object EnableDebug extends Command {
   override def getSyntax: Syntax = {
@@ -11,6 +11,6 @@ object EnableDebug extends Command {
   }
 
   override def perform(args: Array[Argument], context: Context): Unit = {
-    Subprocess.logger.enableDebug()
+    Logger.current.enableDebug()
   }
 }

@@ -1,5 +1,9 @@
 package org.nlogo.languagelibrary
 
+object Logger {
+  val current = new Logger()
+}
+
 class Logger {
   private var _debugEnabled = false
 
