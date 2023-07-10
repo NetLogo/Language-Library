@@ -432,7 +432,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
 
     send
 
-    // Logger.current.logMany("Subprocess.receive()") { Seq("inReader.ready", inReader.ready.toString) }
     val line = inReader.readLine()
     if (line == null) {
       return Failure(new ExtensionException("Unable to read child process output. Try running the command again"))
@@ -487,7 +486,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     Logger.current.logMany("Subprocess.sendMessage()") { Seq("msg", msg.toString) }
     out.write(compact(render(msg)).getBytes("UTF-8"))
     Logger.current.logMany("Subprocess.sendMessage()") { Seq("message written") }
-    out.write('\r')
     out.write('\n')
     Logger.current.logMany("Subprocess.sendMessage()") { Seq("line breaks written") }
     out.flush()
