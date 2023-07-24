@@ -6,18 +6,16 @@ import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{ compact, parse, render }
 
 import org.nlogo.api.Exceptions.ignoring
-import org.nlogo.api.{ ExtensionException, OutputDestination, Workspace }
+import org.nlogo.api.{ ExtensionException, Workspace }
 import org.nlogo.core.Syntax
 import org.nlogo.nvm.HaltException
 import org.nlogo.workspace.AbstractWorkspace
-import org.nlogo.languagelibrary.config.Platform
 
 import java.io._
 import java.lang.ProcessBuilder.Redirect
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{ ExecutorService, Executors, TimeUnit }
-import javax.swing.SwingUtilities
 import scala.collection.JavaConverters._
 import scala.concurrent.SyncVar
 import scala.concurrent.duration.{ Duration, DurationInt }
@@ -172,7 +170,7 @@ object Subprocess {
     throw new ExtensionException(s"$prefix\n$msg")
   }
 
-  private def readAllReady(in: InputStreamReader): String = {
+  private def readAllReady(in: Reader): String = {
     val sb = new StringBuilder
     while (in.ready) {
       sb.append(in.read().toChar)
@@ -206,8 +204,10 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
 
   val out = new BufferedOutputStream(socket.getOutputStream)
 
-  val stdout = new InputStreamReader(proc.getInputStream)
-  val stderr = new InputStreamReader(proc.getErrorStream)
+  val outGobbler = new StreamGobbler(ws, proc.getInputStream)
+  val errGobbler = new StreamGobbler(ws, proc.getErrorStream)
+  outGobbler.start()
+  errGobbler.start()
 
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
@@ -342,32 +342,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }.get.get
   }
 
-  /**
-   * Output to the command center (if not headless) or stdout (if headless)
-   * @param s
-   */
-  private def output(s: String): Unit = {
-    Logger.current.logMany("Subprocess.output()") { Seq("s", s) }
-    if (ws.isHeadless || Platform.isHeadless)
-      println(s)
-    else
-      SwingUtilities.invokeLater { () =>
-        ws.outputObject(s, null, addNewline = true, readable = false, OutputDestination.Normal)
-      }
-  }
-
-  /**
-   * Send subprocess' stdout to the command center if not headless
-   */
-  private def redirectPipes(): Unit = {
-    val stdoutContents = Subprocess.readAllReady(stdout)
-    val stderrContents = Subprocess.readAllReady(stderr)
-    if (stdoutContents.nonEmpty)
-      output(stdoutContents)
-    if (stderrContents.nonEmpty)
-      output(s"${extensionLongName} Error output:\n$stderrContents")
-  }
-
   //--------------------Asynchronous message passing functionality-------------
   private def invalidateJobs(): Unit = isRunningLegitJob.set(false)
 
@@ -462,7 +436,6 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
         Failure(new ExtensionException(s"Unknown message type received from the external langauge: $msg_type"))
     }
 
-    redirectPipes()
     result
   }
 
