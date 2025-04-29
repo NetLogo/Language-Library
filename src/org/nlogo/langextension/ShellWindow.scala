@@ -118,7 +118,7 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
 
   // -------------------------Listeners----------------------------------------
 
-  override def actionPerformed(e: ActionEvent) {
+  override def actionPerformed(e: ActionEvent): Unit = {
     val command = e.getActionCommand
     menuItemCallbacks get command match {
       case Some(callback) => callback(e)

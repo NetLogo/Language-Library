@@ -45,6 +45,6 @@ class ConfigEditor(owner: JFrame, longName: String, extLangBin: String, config: 
     properties.foreach( (prop) => {
       config.set(prop.key, prop.value)
     })
-    config.save
+    config.save()
   }
 }
