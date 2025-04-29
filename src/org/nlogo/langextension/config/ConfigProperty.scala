@@ -1,11 +1,10 @@
 package org.nlogo.languagelibrary.config
 
 import java.awt.{ FileDialog, GridBagConstraints => GBC }
+import java.awt.event.ActionEvent
 import java.io.File
 import java.nio.file.Paths
-import javax.swing.{ JDialog, JLabel, JPanel, JTextField }
-
-import org.nlogo.swing.RichJButton
+import javax.swing.{ AbstractAction, JButton, JDialog, JLabel, JPanel, JTextField }
 
 trait ConfigProperty {
   def key: String
@@ -26,10 +25,12 @@ class FileProperty(val key: String, val fileName: String, initialValue: String, 
     val pathLabel = s"$fileName Path"
     panel.add(new JLabel(pathLabel), Constraints(gridx = 0))
     panel.add(pathTextField, Constraints(gridx = 1, weightx = 1.0, fill = GBC.HORIZONTAL))
-    panel.add(RichJButton("Browse...") {
-      val userSelected = askForPath(parent, pathLabel, pathTextField.getText)
-      userSelected.foreach(pathTextField.setText)
-    }, Constraints(gridx = 2))
+    panel.add(new JButton(new AbstractAction("Browse...") {
+      override def actionPerformed(e: ActionEvent): Unit = {
+        val userSelected = askForPath(parent, pathLabel, pathTextField.getText)
+        userSelected.foreach(pathTextField.setText)
+      }
+    }), Constraints(gridx = 2))
   }
 
   private def askForPath(parent: JDialog, name: String, current: String): Option[String] = {
