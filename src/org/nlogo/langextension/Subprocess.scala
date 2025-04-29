@@ -15,10 +15,10 @@ import java.io._
 import java.lang.ProcessBuilder.Redirect
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{ ExecutorService, Executors, TimeUnit }
-import scala.collection.JavaConverters._
-import scala.concurrent.SyncVar
+import java.util.concurrent.{ ExecutorService, Executors, LinkedBlockingQueue, TimeUnit }
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.duration.{ Duration, DurationInt }
+import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.{ Failure, Success, Try }
 
 /**
@@ -103,7 +103,7 @@ object Subprocess {
       getSysCmdOutput("/bin/bash", "-l", "-c", "echo $PATH").head + basePath
     else
       basePath
-    unsplitPath.split(File.pathSeparatorChar).map(new File(_)).filter(f => f.isDirectory)
+    ArraySeq.unsafeWrapArray(unsplitPath.split(File.pathSeparatorChar).map(new File(_)).filter(f => f.isDirectory))
   }
 
   //-------------------------Private Methods-----------------------------------
@@ -226,7 +226,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
           receive(sendStmt(stmt))
         })
       }
-    }.get.get
+    }.take().get
   }
 
   /**
@@ -243,7 +243,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
           receive(sendExpr(expr))
         })
       }
-    }.get.get
+    }.take().get
   }
 
   /**
@@ -261,7 +261,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
           receive(sendExprStringified(expr))
         })
       }
-    }.get.get.toString
+    }.take().get.toString
   }
 
   /**
@@ -280,7 +280,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
           receive(sendAssn(varName, value))
         })
       }
-    }.get.get
+    }.take().get
   }
 
   /**
@@ -310,7 +310,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
           receive(sendGeneric(msg_type, value))
         })
       }
-    }.get.get
+    }.take().get
   }
 
   /**
@@ -339,7 +339,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
           receive(sendQuit())
         })
       }
-    }.get.get
+    }.take().get
   }
 
   //--------------------Asynchronous message passing functionality-------------
@@ -379,8 +379,8 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     }
   }
 
-  private def async[R](body: => Try[R]): SyncVar[Try[R]] = {
-    val result = new SyncVar[Try[R]]
+  private def async[R](body: => Try[R]): LinkedBlockingQueue[Try[R]] = {
+    val result = new LinkedBlockingQueue[Try[R]](1)
     executor.execute { () =>
       try {
         isRunningLegitJob.set(true)
@@ -444,7 +444,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
       val hb = async {
         receive(sendHeartbeat())
       }
-      hb.get(timeout.toMillis).getOrElse(
+      Option(hb.poll(timeout.toMillis, TimeUnit.MILLISECONDS)).getOrElse(
         Failure(new ExtensionException(
           s"${extensionLongName} is not responding. You can wait to see if it finishes what it's doing or restart it using ${extensionName}:setup"
         ))
