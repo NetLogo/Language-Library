@@ -3,6 +3,7 @@ package org.nlogo.languagelibrary
 import org.json4s.JValue
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods.{ compact, parse, render }
 
 import org.nlogo.api.Exceptions.ignoring
@@ -64,7 +65,8 @@ object Subprocess {
             processStartArgs: Seq[String],
             extensionName: String,
             extensionLongName: String,
-            suppliedPort: Option[Int] = None
+            suppliedPort: Option[Int] = None,
+            customMapper: Option[JsonMethods] = None
            ): Subprocess = {
 
     Logger.current.logOne("Subprocess.start()")
@@ -83,7 +85,7 @@ object Subprocess {
       earlyFail(proc, s"Process terminated early.")
     }
 
-    new Subprocess(ws, proc, socket, extensionName, extensionLongName)
+    new Subprocess(ws, proc, socket, extensionName, extensionLongName, customMapper)
   }
 
   /**
@@ -194,7 +196,7 @@ object Subprocess {
 
 }
 
-class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: String, extensionLongName: String) {
+class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: String, extensionLongName: String, customMapper: Option[JsonMethods]) {
   //---------------------------Class Variables--------------------------------
   private val shuttingDown = new AtomicBoolean(false)
   private val isRunningLegitJob = new AtomicBoolean(false)
@@ -410,7 +412,7 @@ class Subprocess(ws: Workspace, proc: Process, socket: Socket, extensionName: St
     if (line == null) {
       return Failure(new ExtensionException("Unable to read child process output. Try running the command again"))
     }
-    val parsed = parse(line)
+    val parsed = customMapper.map(_.parse(line)).getOrElse(parse(line))
 
     val msg_type = (parsed \ "type") match {
       case JInt(num) => num.toInt
