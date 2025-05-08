@@ -23,7 +23,7 @@ class Convert(val extensionLongName: String) {
     case set: AgentSet => set.toLogoList.map(agent => agentToJson(agent.asInstanceOf[Agent], Set()))
     // I danced and romped but couldn't find a way to get Scala to accept a match like `iter: Iterable[_ <: AnyRef]`
     // without some cryptic error.  -Jeremy B Octover 2022
-    case iter if iter.isInstanceOf[Iterable[_]] => iter.asInstanceOf[Iterable[AnyRef]].map(toJson)
+    case iter if iter.isInstanceOf[Iterable[?]] => iter.asInstanceOf[Iterable[AnyRef]].map(toJson)
     case o => parse(Dump.logoObject(o, readable = true, exporting = false))
   }
 

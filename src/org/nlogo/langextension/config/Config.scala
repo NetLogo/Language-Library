@@ -9,7 +9,7 @@ import org.nlogo.api.{ FileIO, ExtensionException }
 
 object Config {
 
-  def getExtensionRuntimeDirectory(extensionClass: Class[_], codeName: String) = {
+  def getExtensionRuntimeDirectory(extensionClass: Class[?], codeName: String) = {
     val configLoader       = extensionClass.getClassLoader.asInstanceOf[java.net.URLClassLoader]
     val loaderUrls         = configLoader.getURLs()
     val loaderFiles        = loaderUrls.map( (url) => new File(url.toURI.getPath) )
@@ -21,7 +21,7 @@ object Config {
     extensionFile.getParentFile
   }
 
-  def createForPropertyFile(extensionClass: Class[_], codeName: String): Config = {
+  def createForPropertyFile(extensionClass: Class[?], codeName: String): Config = {
     val propertyFileName          = s"$codeName.properties"
     val extensionRuntimeDirectory = getExtensionRuntimeDirectory(extensionClass, codeName)
     val maybePropertyFile         = new File(extensionRuntimeDirectory, propertyFileName)
