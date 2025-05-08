@@ -5,6 +5,7 @@ import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods.{ compact, parse, render }
+import org.json4s.jvalue2monadic
 
 import org.nlogo.api.Exceptions.ignoring
 import org.nlogo.api.{ ExtensionException, Workspace }
@@ -189,7 +190,7 @@ object Subprocess {
   }
 
   private def getSysCmdOutput(cmd: String*): List[String] = {
-    val proc = new ProcessBuilder(cmd: _*).redirectError(Redirect.PIPE).redirectInput(Redirect.PIPE).start()
+    val proc = new ProcessBuilder(cmd*).redirectError(Redirect.PIPE).redirectInput(Redirect.PIPE).start()
     val in = new BufferedReader(new InputStreamReader(proc.getInputStream))
     Iterator.continually(in.readLine()).takeWhile(_ != null).toList
   }
