@@ -1,6 +1,6 @@
 name         := "language-library"
 organization := "org.nlogo.languagelibrary"
-version      := "3.0.2"
+version      := "3.1.0"
 isSnapshot   := true
 
 scalaVersion          := "3.7.0"
