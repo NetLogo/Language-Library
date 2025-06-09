@@ -67,4 +67,10 @@ class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: S
       shellWindow.setVisible(!shellWindow.isVisible)
     }
   }))
+
+  override def syncTheme(): Unit = {
+    super.syncTheme()
+
+    shellWindow.syncTheme()
+  }
 }

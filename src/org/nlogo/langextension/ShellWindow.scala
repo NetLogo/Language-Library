@@ -1,10 +1,12 @@
 package org.nlogo.languagelibrary
 
-import org.nlogo.api.ExtensionException
-
 import java.awt.event._
 import java.awt.{BorderLayout, Dimension}
 import javax.swing._
+
+import org.nlogo.api.ExtensionException
+import org.nlogo.swing.{ Button, ScrollPane, TextArea, Transparent }
+import org.nlogo.theme.{ InterfaceColors, ThemeSync }
 
 /**
  * A ShellWindow lets users interact with the target language through an
@@ -12,7 +14,7 @@ import javax.swing._
  * The extension code only needs to manage its lifecycle and set an
  * `evalStringified` function to be called when evaluating input code.
  */
-class ShellWindow extends JFrame with KeyListener with ActionListener {
+class ShellWindow extends JFrame with KeyListener with ActionListener with ThemeSync {
   // **functional state**
   private var evalStringified: Option[(String) => String] = None
   private var cmdHistory: Seq[String] = Seq()
@@ -22,23 +24,23 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
 
   // **Swing objects**
   private val consolePanel: JSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT)
-  val output = new JTextArea()
-  val input = new JTextArea()
+  val output = new TextArea(0, 0, "")
+  val input = new TextArea(0, 0, "")
 
-  val bottomContainer = new JPanel()
-  val runButton = new JButton("Run")
-  val clearCodeAreaButton = new JButton("Clear Code")
+  private val sp1 = new ScrollPane(output, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
+  private val sp2 = new ScrollPane(input, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
 
-  val topContainer = new JPanel()
-  val clearHistoryAreaButton = new JButton("Clear History")
+  val bottomContainer = new JPanel with Transparent
+  val runButton = new Button("Run", runCode)
+  val clearCodeAreaButton = new Button("Clear Code", () => input.setText(""))
+
+  val topContainer = new JPanel with Transparent
+  val clearHistoryAreaButton = new Button("Clear History", () => output.setText(""))
 
   val contextMenu = new JPopupMenu("Edit")
 
   // **Setup**
   initPanels()
-  clearHistoryAreaButton.addActionListener((_: ActionEvent) => {output.setText("")})
-  clearCodeAreaButton.addActionListener((_: ActionEvent) => {input.setText("")})
-  runButton.addActionListener((_: ActionEvent) => {runCode()})
   addRightClickMenuItem("Clear Output Text", (e: ActionEvent) => {
     output.setText("")
   })
@@ -67,12 +69,7 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
   private def initPanels(): Unit = {
     input.addKeyListener(this)
 
-    val sp1 = new JScrollPane(output)
-    sp1.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
     consolePanel.setTopComponent(sp1)
-
-    val sp2 = new JScrollPane(input)
-    sp2.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
     consolePanel.setBottomComponent(sp2)
 
     topContainer.setLayout(new BorderLayout())
@@ -187,4 +184,16 @@ class ShellWindow extends JFrame with KeyListener with ActionListener {
     }
   }
 
+  override def syncTheme(): Unit = {
+    getContentPane.setBackground(InterfaceColors.dialogBackground())
+
+    sp1.setBackground(InterfaceColors.dialogBackground())
+    sp2.setBackground(InterfaceColors.dialogBackground())
+
+    output.syncTheme()
+    input.syncTheme()
+    runButton.syncTheme()
+    clearCodeAreaButton.syncTheme()
+    clearHistoryAreaButton.syncTheme()
+  }
 }
