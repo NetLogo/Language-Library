@@ -1,11 +1,13 @@
 package org.nlogo.languagelibrary.config
 
-import javax.swing.JMenu
+import java.awt.event.ActionEvent
+import javax.swing.AbstractAction
 
 import org.nlogo.api.ExtensionManager
 import org.nlogo.app.App
-import org.nlogo.workspace.{ AbstractWorkspace, ExtensionManager => WorkspaceExtensionManager }
 import org.nlogo.languagelibrary.ShellWindow
+import org.nlogo.swing.{ Menu => NLMenu, MenuItem }
+import org.nlogo.workspace.{ AbstractWorkspace, ExtensionManager => WorkspaceExtensionManager }
 
 object Menu {
 
@@ -38,7 +40,9 @@ object Menu {
 
 }
 
-class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: String, config: Config, extraProperties: Seq[ConfigProperty]) extends JMenu(longName) {
+class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: String, config: Config,
+           extraProperties: Seq[ConfigProperty]) extends NLMenu(longName) {
+
   def setup(evalStringified: (String) => String) = {
     shellWindow.setEvalStringified(Some(evalStringified))
   }
@@ -52,12 +56,15 @@ class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: S
     shellWindow.setVisible(true)
   }
 
-  add("Configure").addActionListener { _ =>
-    new ConfigEditor(App.app.frame, longName, extLangBin, config, extraProperties).setVisible(true)
-  }
+  add(new MenuItem(new AbstractAction("Configure") {
+    override def actionPerformed(e: ActionEvent): Unit = {
+      new ConfigEditor(App.app.frame, longName, extLangBin, config, extraProperties).setVisible(true)
+    }
+  }))
 
-  add("Pop-out Interpreter").addActionListener { _ =>
-    shellWindow.setVisible(!shellWindow.isVisible)
-  }
-
+  add(new MenuItem(new AbstractAction("Pop-out Interpreter") {
+    override def actionPerformed(e: ActionEvent): Unit = {
+      shellWindow.setVisible(!shellWindow.isVisible)
+    }
+  }))
 }
