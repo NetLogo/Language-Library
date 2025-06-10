@@ -43,11 +43,15 @@ object Menu {
 class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: String, config: Config,
            extraProperties: Seq[ConfigProperty]) extends NLMenu(longName) {
 
+  // lazy because org.nlogo.swing.Menu calls syncTheme() in its constructor (Isaac B 6/10/25)
+  private lazy val configEditor = new ConfigEditor(App.app.frame, longName, extLangBin, config, extraProperties)
+
   def setup(evalStringified: (String) => String) = {
     shellWindow.setEvalStringified(Some(evalStringified))
   }
 
   def unload() = {
+    configEditor.setVisible(false)
     shellWindow.setVisible(false)
     App.app.frame.getJMenuBar.remove(this)
   }
@@ -58,7 +62,7 @@ class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: S
 
   add(new MenuItem(new AbstractAction("Configure") {
     override def actionPerformed(e: ActionEvent): Unit = {
-      new ConfigEditor(App.app.frame, longName, extLangBin, config, extraProperties).setVisible(true)
+      configEditor.setVisible(true)
     }
   }))
 
@@ -71,6 +75,7 @@ class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: S
   override def syncTheme(): Unit = {
     super.syncTheme()
 
+    configEditor.syncTheme()
     shellWindow.syncTheme()
   }
 }
