@@ -1,11 +1,11 @@
 package org.nlogo.languagelibrary
 
-import java.awt.event._
-import java.awt.{BorderLayout, Dimension}
-import javax.swing._
+import java.awt.{ BorderLayout, Dimension }
+import java.awt.event.{ ActionEvent, ComponentAdapter, ComponentEvent, KeyAdapter, KeyEvent }
+import javax.swing.{ AbstractAction, JFrame, JPanel, JSplitPane, ScrollPaneConstants }
 
 import org.nlogo.api.ExtensionException
-import org.nlogo.swing.{ Button, ScrollPane, TextArea, Transparent }
+import org.nlogo.swing.{ Button, MenuItem, PopupMenu, ScrollPane, TextArea, Transparent }
 import org.nlogo.theme.{ InterfaceColors, ThemeSync }
 
 /**
@@ -14,13 +14,11 @@ import org.nlogo.theme.{ InterfaceColors, ThemeSync }
  * The extension code only needs to manage its lifecycle and set an
  * `evalStringified` function to be called when evaluating input code.
  */
-class ShellWindow extends JFrame with KeyListener with ActionListener with ThemeSync {
+class ShellWindow extends JFrame with ThemeSync {
   // **functional state**
   private var evalStringified: Option[(String) => String] = None
   private var cmdHistory: Seq[String] = Seq()
-  private var cmdHistoryIndex = 0
-  private var cmdHistoryFirst = true
-  private var menuItemCallbacks: Map[String, (ActionEvent) => Unit] = Map()
+  private var cmdHistoryIndex = -1
 
   // **Swing objects**
   private val consolePanel: JSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT)
@@ -37,22 +35,40 @@ class ShellWindow extends JFrame with KeyListener with ActionListener with Theme
   val topContainer = new JPanel with Transparent
   val clearHistoryAreaButton = new Button("Clear History", () => output.setText(""))
 
-  val contextMenu = new JPopupMenu("Edit")
+  private val outputContextMenu = new PopupMenu("Edit")
+  private val inputContextMenu = new PopupMenu("Edit")
 
-  // **Setup**
-  initPanels()
-  addRightClickMenuItem("Clear Output Text", (e: ActionEvent) => {
-    output.setText("")
-  })
-  addRightClickMenuItem("Clear Input Text", (e: ActionEvent) => {
-    input.setText("")
-  })
+  outputContextMenu.add(new MenuItem(new AbstractAction("Copy Selected Text") {
+    def actionPerformed(e: ActionEvent): Unit = {
+      output.copy()
+    }
+  }))
+
+  outputContextMenu.add(new MenuItem(new AbstractAction("Clear Text") {
+    def actionPerformed(e: ActionEvent): Unit = {
+      output.setText("")
+    }
+  }))
+
+  inputContextMenu.add(new MenuItem(new AbstractAction("Copy Selected Text") {
+    def actionPerformed(e: ActionEvent): Unit = {
+      input.copy()
+    }
+  }))
+
+  inputContextMenu.add(new MenuItem(new AbstractAction("Clear Text") {
+    def actionPerformed(e: ActionEvent): Unit = {
+      input.setText("")
+    }
+  }))
 
   output.setText(
     "Usage:\n\n"
       + "Write commands in the lower area and hit Ctrl-Enter to submit them.\n"
       + "Use page up/down to recall previously submitted commands.\n\n"
   )
+
+  initPanels()
 
   // ---------------------Getters and Setters----------------------------------
 
@@ -67,7 +83,27 @@ class ShellWindow extends JFrame with KeyListener with ActionListener with Theme
   // -------------------------Helpers------------------------------------------
 
   private def initPanels(): Unit = {
-    input.addKeyListener(this)
+    input.addKeyListener(new KeyAdapter {
+      override def keyPressed(ke: KeyEvent): Unit = {
+        if (ke.isControlDown && ke.getKeyCode == KeyEvent.VK_ENTER) {
+          runCode()
+        } else if (ke.getKeyCode == KeyEvent.VK_PAGE_UP && cmdHistoryIndex < cmdHistory.size - 1) {
+          cmdHistoryIndex += 1
+
+          input.setText(cmdHistory(cmdHistoryIndex))
+          input.setCaretPosition(input.getText.size)
+        } else if (ke.getKeyCode == KeyEvent.VK_PAGE_DOWN && cmdHistoryIndex > -1) {
+          cmdHistoryIndex -= 1
+
+          if (cmdHistoryIndex == -1) {
+            input.setText("")
+          } else {
+            input.setText(cmdHistory(cmdHistoryIndex))
+            input.setCaretPosition(input.getText.size)
+          }
+        }
+      }
+    })
 
     consolePanel.setTopComponent(sp1)
     consolePanel.setBottomComponent(sp2)
@@ -96,72 +132,19 @@ class ShellWindow extends JFrame with KeyListener with ActionListener with Theme
       }
     })
 
-    output.setComponentPopupMenu(contextMenu)
-    input.setComponentPopupMenu(contextMenu)
-    output.setInheritsPopupMenu(true)
-    input.setInheritsPopupMenu(true)
+    output.setComponentPopupMenu(outputContextMenu)
+    input.setComponentPopupMenu(inputContextMenu)
 
     input.setTabSize(2)
     output.setTabSize(2)
-
-  }
-
-  private def addRightClickMenuItem(label: String, callback: (ActionEvent) => Unit): Unit = {
-    val item: JMenuItem = new JMenuItem(label)
-    item.addActionListener(this)
-    menuItemCallbacks = menuItemCallbacks + (label -> callback)
-    contextMenu.add(item)
-  }
-
-  // -------------------------Listeners----------------------------------------
-
-  override def actionPerformed(e: ActionEvent): Unit = {
-    val command = e.getActionCommand
-    menuItemCallbacks get command match {
-      case Some(callback) => callback(e)
-      case None =>
-    }
-  }
-
-  override def keyTyped(ke: KeyEvent): Unit = {
-  }
-
-  override def keyPressed(ke: KeyEvent): Unit = {
-    if (ke.isControlDown && ke.getKeyCode == KeyEvent.VK_ENTER) {
-      runCode()
-    }
-  }
-
-  override def keyReleased(ke: KeyEvent): Unit = {
-    if (ke.getKeyCode == KeyEvent.VK_PAGE_DOWN || ke.getKeyCode == KeyEvent.VK_PAGE_UP) {
-      if (cmdHistory.nonEmpty) {
-        if (ke.getKeyCode == KeyEvent.VK_PAGE_UP) {
-          if (!cmdHistoryFirst) {
-            cmdHistoryIndex -= 1
-          }
-          if (cmdHistoryIndex < 0) {
-            cmdHistoryIndex = cmdHistory.size - 1
-          }
-        } else {
-          cmdHistoryIndex += 1
-          if (cmdHistoryIndex >= cmdHistory.size) {
-            cmdHistoryIndex = 0
-          }
-        }
-        cmdHistoryFirst = false
-        input.setText(cmdHistory(cmdHistoryIndex))
-      }
-    }
   }
 
   private def runCode(): Unit = {
     val cmd = input.getText.trim
 
-    if (cmdHistory.isEmpty || cmdHistory.last != cmd) { // ignore repeated identical commands
-      cmdHistory :+= cmd
-      cmdHistoryIndex = cmdHistory.size - 1
-    }
-    cmdHistoryFirst = true
+    // remove repeated identical commands from history (Isaac B 6/26/25)
+    cmdHistory = cmd +: cmdHistory.filter(_ != cmd)
+    cmdHistoryIndex = -1
 
     input.setText("")
     input.setCaretPosition(0)
@@ -195,5 +178,8 @@ class ShellWindow extends JFrame with KeyListener with ActionListener with Theme
     runButton.syncTheme()
     clearCodeAreaButton.syncTheme()
     clearHistoryAreaButton.syncTheme()
+
+    outputContextMenu.syncTheme()
+    inputContextMenu.syncTheme()
   }
 }
