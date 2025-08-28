@@ -13,7 +13,7 @@ def cclArtifacts(path: String): String =
   s"https://s3.amazonaws.com/ccl-artifacts/$path"
 
 libraryDependencies ++= Seq(
-  "org.nlogo"          % "netlogo"        % "7.0.0-beta2-7e8f7a4"
+  "org.nlogo"          % "netlogo"        % "7.0.0-RC1-e8801f2"
 , "org.json4s"        %% "json4s-jackson" % "4.0.7"
 // not used by this library, but needed for NetLogo
 , "org.jogamp.jogl" % "jogl-all" % "2.4.0" from cclArtifacts("jogl-all-2.4.0.jar")
