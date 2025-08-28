@@ -43,6 +43,8 @@ object Menu {
 class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: String, config: Config,
            extraProperties: Seq[ConfigProperty]) extends NLMenu(longName) {
 
+  private val functionID = App.app.addSyncFunction(() => { syncTheme() })
+
   // lazy because org.nlogo.swing.Menu calls syncTheme() in its constructor (Isaac B 6/10/25)
   private lazy val configEditor = new ConfigEditor(App.app.frame, longName, extLangBin, config, extraProperties)
 
@@ -54,6 +56,7 @@ class Menu(private val shellWindow: ShellWindow, longName: String, extLangBin: S
     configEditor.setVisible(false)
     shellWindow.setVisible(false)
     App.app.frame.getJMenuBar.remove(this)
+    App.app.removeSyncFunction(functionID)
   }
 
   def showShellWindow() = {
