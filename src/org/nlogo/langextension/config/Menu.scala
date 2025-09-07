@@ -7,7 +7,6 @@ import org.nlogo.api.ExtensionManager
 import org.nlogo.app.App
 import org.nlogo.languagelibrary.ShellWindow
 import org.nlogo.swing.{ Menu => NLMenu, MenuItem }
-import org.nlogo.workspace.{ AbstractWorkspace, ExtensionManager => WorkspaceExtensionManager }
 
 object Menu {
 
@@ -15,10 +14,7 @@ object Menu {
     // My gut tells me this information should be way easier for an extension to find, but
     // at the moment I don't feel like digging into the NetLogo side to figure out the
     // right place.  So we'll do this.  -Jeremy B July 2022
-    val isHeadlessWorkspace = em.isInstanceOf[WorkspaceExtensionManager] &&
-      em.asInstanceOf[WorkspaceExtensionManager].workspace.isInstanceOf[AbstractWorkspace] &&
-      em.asInstanceOf[WorkspaceExtensionManager].workspace.asInstanceOf[AbstractWorkspace].isHeadless
-    if (isHeadlessWorkspace || Platform.isHeadless) {
+    if (!em.workspaceContext.workspaceGUI) {
       None
     } else {
       val menuBar   = App.app.frame.getJMenuBar
